@@ -9,8 +9,9 @@
 # SystemV shared memory
 #
 #IPC_INFO
-AC_CHECK_LIB([rt], [shm_open],     [], AC_MSG_ERROR([librt not found]))
-AC_CHECK_LIB([rt], [timer_create], [], AC_MSG_ERROR([librt not found]))
+=======
+AC_CHECK_LIB([rt], [shm_open], [AC_DEFINE([HAVE_SHMEM_SYSV], [1],[Shared Memory SysV is available])],[])
+#AC_CHECK_LIB([rt], [timer_create], [], AC_MSG_ERROR([librt not found]))
 
 #
 # Extended string functions
