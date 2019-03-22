@@ -9,25 +9,51 @@
 # SystemV shared memory
 #
 #IPC_INFO
-=======
-AC_CHECK_LIB([rt], [shm_open], [AC_DEFINE([HAVE_SHMEM_SYSV], [1],[Shared Memory SysV is available])],[])
+AC_CHECK_LIB([rt], [shm_open],
+              AC_DEFINE([HAVE_SHMEM_SYSV], [1],
+                        [Shared Memory SysV is available]),[])
 #AC_CHECK_LIB([rt], [timer_create], [], AC_MSG_ERROR([librt not found]))
 
 #
-# Extended string functions
+# Extended string function
 #
-AC_CHECK_DECLS([asprintf, strdupa, basename, fmemopen], [],
+AC_CHECK_DECLS([asprintf], [],
 				AC_MSG_ERROR([GNU string extensions not found]), 
 				[#define _GNU_SOURCE 1
 				 #include <string.h>
 				 #include <stdio.h>])
 
+#
+# Support for basename call
+#
+AC_CHECK_DECLS([basename], [],
+				AC_MSG_ERROR([GNU string extensions not found]),
+				[#include <libgen.h>])
+
+#
+# Support for HUGE TLP Pages
+#
+AC_CHECK_HEADERS([sys/shm.h])
+AC_CHECK_DECLS([SHM_HUGETLB],
+                AC_DEFINE([HAVE_HUGE_PAGES], [1],
+                          [Huge pages support is available]),
+				[],
+				[#if HAVE_SYS_SHM_H
+				 # include <sys/shm.h>
+                 #endif])
+
+#
+# Support for malloc.h
+#
+AC_CHECK_HEADERS([malloc.h])
 
 #
 # CPU-sets 
 #
-AC_CHECK_DECLS([CPU_ZERO, CPU_ISSET], [], 
-				AC_MSG_ERROR([CPU_ZERO/CPU_ISSET not found]), 
+AC_CHECK_DECLS([CPU_ZERO, CPU_ISSET],
+                AC_DEFINE([HAVE_LINUX_CPU_AFFINITY], [1],
+                          [Have Linux cpu affinity support]),
+				[],
 				[#define _GNU_SOURCE 1
 				 #include <sched.h>])
 
