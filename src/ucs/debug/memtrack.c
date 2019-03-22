@@ -11,7 +11,9 @@
 #include <ucs/stats/stats.h>
 #include <ucs/sys/sys.h>
 #include <ucs/sys/math.h>
+#if HAVE_MALLOC_H
 #include <malloc.h>
+#endif
 #include <stdio.h>
 
 

@@ -16,7 +16,9 @@
 #include <ucs/sys/module.h>
 #include <ucs/sys/string.h>
 #include <ucs/arch/cpu.h>
+#if HAVE_MALLOC_H
 #include <malloc.h>
+#endif
 
 
 UCS_LIST_HEAD(uct_md_components_list);
