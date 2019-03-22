@@ -10,7 +10,9 @@
 #include <ucs/sys/sys.h>
 #include <ucs/debug/assert.h>
 #include <ucs/debug/log.h>
+#if HAVE_MALLOC_H
 #include <malloc.h>
+#endif
 
 
 /* Initial allocation size */
