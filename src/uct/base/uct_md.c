@@ -20,7 +20,9 @@
 #include <ucs/sys/module.h>
 #include <ucs/sys/string.h>
 #include <ucs/arch/cpu.h>
+#if HAVE_MALLOC_H
 #include <malloc.h>
+#endif
 
 
 ucs_config_field_t uct_md_config_table[] = {
