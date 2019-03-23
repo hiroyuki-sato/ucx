@@ -15,7 +15,9 @@
 #include <ucs/arch/bitops.h>
 #include <ucs/sys/module.h>
 #include <string.h>
+#if HAVE_MALLOC_H
 #include <malloc.h>
+#endif
 #include <tools/perf/lib/libperf_int.h>
 #include <unistd.h>
 
