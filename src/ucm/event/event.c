@@ -17,6 +17,8 @@
 #include <ucs/datastruct/khash.h>
 #include <ucs/sys/compiler.h>
 #include <ucs/sys/module.h>
+#include <ucs/type/spinlock.h>
+
 
 #include <sys/mman.h>
 #include <pthread.h>
