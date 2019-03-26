@@ -10,6 +10,18 @@
 #include <ucs/type/status.h>
 #include <pthread.h>
 
+#if !HAVE_PTHREAD_SPINLOCK
+typedef pthread_mutex_t pthread_spinlock_t;
+
+int pthread_spin_init(pthread_spinlock_t *lock, int pshared);
+int pthread_spin_lock(pthread_spinlock_t *lock);
+int pthread_spin_unlock(pthread_spinlock_t *lock);
+int pthread_spin_trylock(pthread_spinlock_t *lock);
+int pthread_spin_destroy(pthread_spinlock_t *lock);
+
+#endif
+
+
 BEGIN_C_DECLS
 
 /** @file spinlock.h */
@@ -69,7 +81,7 @@ static inline void ucs_spin_unlock(ucs_spinlock_t *lock)
 {
     --lock->count;
     if (lock->count == 0) {
-        lock->owner = 0xfffffffful;
+      lock->owner = (pthread_t)0xfffffffful;
         pthread_spin_unlock(&lock->lock);
     }
 }
