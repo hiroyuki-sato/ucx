@@ -48,6 +48,12 @@ AC_CHECK_DECLS([SHM_HUGETLB],
 AC_CHECK_HEADERS([malloc.h])
 
 #
+# Support for epoll.h
+#
+AC_CHECK_HEADERS([sys/epoll.h])
+
+
+#
 # CPU-sets 
 #
 AC_CHECK_DECLS([CPU_ZERO, CPU_ISSET],
