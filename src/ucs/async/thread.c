@@ -63,7 +63,11 @@ static void ucs_async_thread_put(ucs_async_thread_t *thread)
 static void *ucs_async_thread_func(void *arg)
 {
     ucs_async_thread_t *thread = arg;
+#if HAVE_SYS_EPOLL_H
     struct epoll_event events[UCS_ASYNC_EPOLL_MAX_EVENTS];
+#else
+    struct kevent kev[UCS_ASYNC_EPOLL_MAX_EVENTS];
+#endif
     ucs_time_t last_time, curr_time, timer_interval, time_spent;
     int i, nready, is_missed, timeout_ms;
     ucs_status_t status;
@@ -90,18 +94,27 @@ static void *ucs_async_thread_func(void *arg)
             timeout_ms = ucs_time_to_msec(timer_interval -
                                           ucs_min(time_spent, timer_interval));
         }
+#if HAVE_SYS_EPOLL_H
         nready = epoll_wait(thread->epfd, events, UCS_ASYNC_EPOLL_MAX_EVENTS,
                             timeout_ms);
         if ((nready < 0) && (errno != EINTR)) {
             ucs_fatal("epoll_wait() failed: %m");
         }
+#else
+        nready = kevent(thread->epfd,NULL,0,kev,UCS_ASYNC_EPOLL_MAX_EVENTS,
+                        timeout_ms);
+#endif
         ucs_trace_async("epoll_wait(epfd=%d, timeout=%d) returned %d",
                         thread->epfd, timeout_ms, nready);
 
         /* Check ready files */
         if (nready > 0) {
             for (i = 0; i < nready; ++i) {
+#ifdef HAVE_SYS_EPOLL_H
                 fd = events[i].data.fd;
+#else
+                fd = kev[i].ident;
+#endif
 
                 /* Check wakeup pipe */
                 if (fd == ucs_async_pipe_rfd(&thread->wakeup)) {
@@ -136,7 +149,11 @@ static void *ucs_async_thread_func(void *arg)
 static ucs_status_t ucs_async_thread_start(ucs_async_thread_t **thread_p)
 {
     ucs_async_thread_t *thread;
+#ifdef HAVE_SYS_EPOLL_H
     struct epoll_event event;
+#else
+    struct kevent kev;
+#endif
     ucs_status_t status;
     int wakeup_rfd;
     int ret;
@@ -172,6 +189,7 @@ static ucs_status_t ucs_async_thread_start(ucs_async_thread_t **thread_p)
     }
 
     /* Create epoll set the thread will wait on */
+#ifdef HAVE_SYS_EPOLL_H
     thread->epfd = epoll_create(1);
     if (thread->epfd < 0) {
         ucs_error("epoll_create() failed: %m");
@@ -191,6 +209,27 @@ static ucs_status_t ucs_async_thread_start(ucs_async_thread_t **thread_p)
         status = UCS_ERR_IO_ERROR;
         goto err_close_epfd;
     }
+#else
+    thread->epfd = kqueue();
+    if (thread->epfd < 0) {
+        ucs_error("kqueue() failed: %m");
+        status = UCS_ERR_IO_ERROR;
+        goto err_close_pipe;
+    }
+
+    /* Add wakeup pipe to epoll set */
+    wakeup_rfd    = ucs_async_pipe_rfd(&thread->wakeup);
+    memset(&kev, 0, sizeof(kev));
+    EV_SET(&kev,wakeup_rfd,EVFILT_READ, EV_ADD, 0, 0 NULL);
+    ret = kevent(thread->epfd, &kev, 1, NULL, 0 NULL);
+    if(ret < 0) {
+        ucs_error("kqueue(epfd=%d, ADD, fd=%d) failed: %m",thread->epfd,
+                  wakeup_rfd);
+        status = UCS_ERR_IO_ERROR;
+        goto err_close_epfd;
+    }
+
+#endif
 
     ret = pthread_create(&thread->thread_id, NULL, ucs_async_thread_func, thread);
     if (ret != 0) {
@@ -295,7 +334,11 @@ static ucs_status_t ucs_async_thread_add_event_fd(ucs_async_context_t *async,
                                                   int event_fd, int events)
 {
     ucs_async_thread_t *thread;
+#ifdef HAVE_SYS_EPOLL_H
     struct epoll_event event;
+#else
+    struct kevent kev;
+#endif
     ucs_status_t status;
     int ret;
 
@@ -304,6 +347,7 @@ static ucs_status_t ucs_async_thread_add_event_fd(ucs_async_context_t *async,
         goto err;
     }
 
+#ifdef HAVE_SYS_EPOLL_H
     memset(&event, 0, sizeof(event));
     event.events  = events;
     event.data.fd = event_fd;
@@ -314,6 +358,17 @@ static ucs_status_t ucs_async_thread_add_event_fd(ucs_async_context_t *async,
         status = UCS_ERR_IO_ERROR;
         goto err_removed;
     }
+#else
+    memset(&kev, 0, sizeof(kev));
+    EV_SET(&kev,event_fd,EVFILT_READ, EV_ADD, 0, 0 events);
+    ret = kevent(thread->epfd, &kev, 1, NULL, 0, NULL);
+    if(ret < 0) {
+        ucs_error("kqueue(epfd=%d, ADD, fd=%d) failed: %m",thread->epfd,
+                  wakeup_rfd);
+        status = UCS_ERR_IO_ERROR;
+        goto err_removed;
+    }
+#endif
 
     ucs_async_pipe_push(&thread->wakeup);
     return UCS_OK;
@@ -330,12 +385,22 @@ static ucs_status_t ucs_async_thread_remove_event_fd(ucs_async_context_t *async,
     ucs_async_thread_t *thread = ucs_async_thread_global_context.thread;
     int ret;
 
+#ifdef HAVE_SYS_EPOLL_H
     ret = epoll_ctl(thread->epfd, EPOLL_CTL_DEL, event_fd, NULL);
     if (ret < 0) {
         ucs_error("epoll_ctl(epfd=%d, DEL, fd=%d) failed: %m", thread->epfd,
                   event_fd);
         return UCS_ERR_INVALID_PARAM;
     }
+#else
+    EV_SET(&kev,event_fd,EVFILT_READ, EV_DELETE, 0, 0 NULL);
+    ret = kevent(thread->epfd, &kev, 1, NULL, 0, NULL);
+    if(ret < 0) {
+        ucs_error("kqueue(epfd=%d, DEL, fd=%d) failed: %m",thread->epfd,
+                  event_fd);
+        status = UCS_ERR_INVALID_PARAM;
+    }
+#endif
 
     ucs_async_thread_stop();
     return UCS_OK;
@@ -345,9 +410,14 @@ static ucs_status_t ucs_async_thread_modify_event_fd(ucs_async_context_t *async,
                                                      int event_fd, int events)
 {
     ucs_async_thread_t *thread = ucs_async_thread_global_context.thread;
+#ifdef HAVE_SYS_EPOLL_H
     struct epoll_event event;
+#else
+    struct kevent kev;
+#endif
     int ret;
 
+#ifdef HAVE_SYS_EPOLL_H
     memset(&event, 0, sizeof(event));
     event.events  = events;
     event.data.fd = event_fd;
@@ -357,6 +427,25 @@ static ucs_status_t ucs_async_thread_modify_event_fd(ucs_async_context_t *async,
                   event_fd);
         return UCS_ERR_IO_ERROR;
     }
+#else
+    memset(&kev, 0, sizeof(kev));
+    EV_SET(&kev,event_fd,EVFILT_READ, EV_DELETE, 0, 0 NULL);
+    ret = kevent(thread->epfd, &kev, 1, NULL, 0, NULL);
+    if(ret < 0) {
+        ucs_error("kqueue(epfd=%d, DEL, fd=%d) failed: %m",thread->epfd,
+                  event_fd);
+        return UCS_ERR_IO_ERROR;
+    }
+
+    memset(&kev, 0, sizeof(kev));
+    EV_SET(&kev,event_fd,EVFILT_READ, EV_ADD, 0, 0 events);
+    ret = kevent(thread->epfd, &kev, 1, NULL, 0, NULL);
+    if(ret < 0) {
+        ucs_error("kqueue(epfd=%d, ADD, fd=%d) failed: %m",thread->epfd,
+                  wakeup_rfd);
+        return UCS_ERR_IO_ERROR;
+    }
+#endif
 
     return UCS_OK;
 }
