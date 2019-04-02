@@ -29,7 +29,6 @@
 #else
 #include <sys/event.h>
 #endif
-#endif
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/param.h>
