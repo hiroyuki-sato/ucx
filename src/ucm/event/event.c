@@ -177,8 +177,10 @@ void *ucm_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t off
 {
     ucm_event_t event;
 
-    ucm_trace("ucm_mmap(addr=%p length=%lu prot=0x%x flags=0x%x fd=%d offset=%ld)",
-              addr, length, prot, flags, fd, offset);
+    /* Actual type definition of off_t depends on platform: long on Linux, 
+       long long on OSX */
+    ucm_trace("ucm_mmap(addr=%p length=%lu prot=0x%x flags=0x%x fd=%d offset=%lld)",
+              addr, length, prot, flags, fd, (long long)offset);
 
     ucm_event_enter();
 
