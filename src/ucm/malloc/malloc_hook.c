@@ -10,7 +10,12 @@
 
 #include "malloc_hook.h"
 
-#include <malloc.h>
+#ifdef __APPLE__
+#  include <stdlib.h>
+#else
+#  include <malloc.h>
+#endif
+
 #undef M_TRIM_THRESHOLD
 #undef M_MMAP_THRESHOLD
 #include "allocator.h" /* have to be included after malloc.h */
