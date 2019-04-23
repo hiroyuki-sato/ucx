@@ -18,7 +18,9 @@
 #include <ucs/sys/sys.h>
 
 #include <sys/ioctl.h>
-#include <linux/futex.h>
+#ifndef __APPLE__
+#  include <linux/futex.h>
+#endif
 
 const char *ucs_stats_formats_names[] = {
     [UCS_STATS_FULL]        = "full",
@@ -27,7 +29,7 @@ const char *ucs_stats_formats_names[] = {
     [UCS_STATS_LAST]        = NULL
 };
 
-#if ENABLE_STATS
+#if ENABLE_STATS || !__APPLE__
 
 enum {
     UCS_STATS_FLAG_ON_EXIT        = UCS_BIT(0),
