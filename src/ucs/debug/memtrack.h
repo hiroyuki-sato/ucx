@@ -132,7 +132,11 @@ char *ucs_strndup(const char *src, size_t n, const char *name);
 #define ucs_malloc(_s, ...)                        malloc(_s)
 #define ucs_calloc(_n, _s, ...)                    calloc(_n, _s)
 #define ucs_realloc(_p, _s, ...)                   realloc(_p, _s)
-#define ucs_memalign(_b, _s, ...)                  memalign(_b, _s)
+#ifndef __APPLE__
+#  define ucs_memalign(_b, _s, ...)                  memalign(_b, _s)
+#else
+void *ucs_memalign(size_t boundary, size_t size, ...);
+#endif
 #define ucs_free(_p)                               free(_p)
 #define ucs_mmap(_a, _l, _p, _fl, _fd, _o, ...)    mmap(_a, _l, _p, _fl, _fd, _o)
 #define ucs_munmap(_a, _l)                         munmap(_a, _l)

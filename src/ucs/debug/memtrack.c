@@ -205,7 +205,17 @@ void *ucs_realloc(void *ptr, size_t size, const char *name)
 
 void *ucs_memalign(size_t boundary, size_t size, const char *name)
 {
-    void *ptr = memalign(boundary, size);
+    void *ptr;
+#ifdef __APPLE__
+    int err;
+
+    err = posix_memalign((void **)&ptr, boundary, size);
+    if (err != 0) {
+        ptr = NULL;
+    }
+#else
+    ptr = memalign(boundary, size);
+#endif
     ucs_memtrack_allocated(ptr, size, name);
     return ptr;
 }
@@ -384,4 +394,18 @@ int ucs_memtrack_is_enabled()
     return ucs_memtrack_context.enabled;
 }
 
+#else
+#ifdef __APPLE__
+void *ucs_memalign(size_t boundary, size_t size, ...)
+{
+    void *ptr;
+    int err;
+
+    err = posix_memalign((void **)&ptr, boundary, size);
+    if (err != 0) {
+        ptr = NULL;
+    }
+    return ptr;
+}
+#endif
 #endif
