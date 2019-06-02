@@ -93,7 +93,8 @@ UCS_TEST_F(test_event_set, ucs_event_set_read_thread) {
     EXPECT_EQ(UCS_OK, status);
     EXPECT_TRUE(event_set != NULL);
 
-    status = ucs_event_set_add(event_set, pipefd[0], UCS_EVENT_SET_EVREAD);
+    status = ucs_event_set_add(event_set, pipefd[0], UCS_EVENT_SET_EVREAD,
+                               NULL);
     EXPECT_EQ(UCS_OK, status);
 
     status = ucs_event_set_wait(event_set, 50, event_set_func1, arg);
@@ -128,7 +129,8 @@ UCS_TEST_F(test_event_set, ucs_event_set_write_thread) {
     EXPECT_EQ(UCS_OK, status);
     EXPECT_TRUE(event_set != NULL);
 
-    status = ucs_event_set_add(event_set, pipefd[1], UCS_EVENT_SET_EVWRITE);
+    status = ucs_event_set_add(event_set, pipefd[1], UCS_EVENT_SET_EVWRITE,
+                               NULL);
     EXPECT_EQ(UCS_OK, status);
 
     status = ucs_event_set_wait(event_set, 50, event_set_func2, NULL);
@@ -163,7 +165,8 @@ UCS_TEST_F(test_event_set, ucs_event_set_tmo_thread) {
     EXPECT_EQ(UCS_OK, status);
     EXPECT_TRUE(event_set != NULL);
 
-    status = ucs_event_set_add(event_set, pipefd[0], UCS_EVENT_SET_EVREAD);
+    status = ucs_event_set_add(event_set, pipefd[0], UCS_EVENT_SET_EVREAD,
+                               NULL);
     EXPECT_EQ(UCS_OK,status);
 
     status = ucs_event_set_wait(event_set, 20, event_set_func3, NULL);

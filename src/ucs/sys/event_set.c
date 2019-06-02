@@ -25,6 +25,10 @@ struct ucs_sys_event_set {
     int epfd;
 };
 
+typedef struct ucs_sys_event_set_epoll_data {
+    int fd;
+    void *udata;
+} ucs_sys_event_set_epoll_data_t;
 
 static inline int ucs_event_set_map_to_raw_events(int events)
 {
@@ -81,14 +85,18 @@ out_create:
 }
 
 ucs_status_t ucs_event_set_add(ucs_sys_event_set_t *event_set, int event_fd,
-                               ucs_event_set_type_t events)
+                               ucs_event_set_type_t events, void *udata)
 {
     struct epoll_event raw_event;
     int ret;
+    ucs_sys_event_set_epoll_data_t epoll_data;
+
+    epoll_data.fd = event_fd;
+    epoll_data.udata = udata;
 
     memset(&raw_event, 0, sizeof(raw_event));
     raw_event.events   = ucs_event_set_map_to_raw_events(events);
-    raw_event.data.fd  = event_fd;
+    raw_event.data.ptr = (void *)&epoll_data;
 
     ret = epoll_ctl(event_set->epfd, EPOLL_CTL_ADD, event_fd, &raw_event);
     if (ret < 0) {
@@ -101,14 +109,18 @@ ucs_status_t ucs_event_set_add(ucs_sys_event_set_t *event_set, int event_fd,
 }
 
 ucs_status_t ucs_event_set_mod(ucs_sys_event_set_t *event_set, int event_fd,
-                               ucs_event_set_type_t events)
+                               ucs_event_set_type_t events, void *udata)
 {
     struct epoll_event raw_event;
     int ret;
+    ucs_sys_event_set_epoll_data_t epoll_data;
+
+    epoll_data.fd = event_fd;
+    epoll_data.udata = udata;
 
     memset(&raw_event, 0, sizeof(raw_event));
     raw_event.events   = ucs_event_set_map_to_raw_events(events);
-    raw_event.data.fd  = event_fd;
+    raw_event.data.ptr = (void *)&epoll_data;
 
     ret = epoll_ctl(event_set->epfd, EPOLL_CTL_MOD, event_fd, &raw_event);
     if (ret < 0) {
@@ -156,8 +168,12 @@ ucs_status_t ucs_event_set_wait(ucs_sys_event_set_t *event_set, int timeout_ms,
                    event_set->epfd, timeout_ms, nready);
 
     for (i=0; i < nready; i++) {
-        int events = ucs_event_set_map_to_events(ep_events[i].events);
-        event_set_handler(ep_events[i].data.fd, events, arg);
+        int events;
+        ucs_sys_event_set_epoll_data_t *epoll_data;
+        epoll_data = ep_events[i].data.ptr;
+
+        events = ucs_event_set_map_to_events(epoll_data->fd);
+        event_set_handler(epoll_data->fd, events, arg);
     }
     return UCS_OK;
 }

@@ -51,7 +51,7 @@ ucs_status_t ucs_event_set_create(ucs_sys_event_set_t **event_set_p);
  * @return UCS_OK on success or an error code on failure.
  */
 ucs_status_t ucs_event_set_add(ucs_sys_event_set_t *event_set, int event_fd,
-                               ucs_event_set_type_t events);
+                               ucs_event_set_type_t events, void *udata);
 
 /**
  * Modify the target event.
@@ -63,7 +63,7 @@ ucs_status_t ucs_event_set_add(ucs_sys_event_set_t *event_set, int event_fd,
  * @return UCS_OK on success or an error code on failure.
  */
 ucs_status_t ucs_event_set_mod(ucs_sys_event_set_t *event_set, int event_fd,
-                               ucs_event_set_type_t events);
+                               ucs_event_set_type_t events, void *udata);
 
 /**
  * Remove the target event.
