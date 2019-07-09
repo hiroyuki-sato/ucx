@@ -22,13 +22,18 @@
 #endif
 
 
-const unsigned ucs_sys_event_set_max_wait_events =
-    UCS_ALLOCA_MAX_SIZE / sizeof(struct epoll_event);
-
+enum {
+    UCS_SYS_EVENT_SET_EXTERNAL_EVENT_FD = UCS_BIT(0),
+};
 
 struct ucs_sys_event_set {
     int epfd;
+    int flags;
 };
+
+
+const unsigned ucs_sys_event_set_max_wait_events =
+    UCS_ALLOCA_MAX_SIZE / sizeof(struct epoll_event);
 
 
 static inline int ucs_event_set_map_to_raw_events(int events)
@@ -43,6 +48,9 @@ static inline int ucs_event_set_map_to_raw_events(int events)
     }
     if (events & UCS_EVENT_SET_EVERR) {
          raw_events |= EPOLLERR;
+    }
+    if (events & UCS_EVENT_SET_EVET) {
+        raw_events  |= EPOLLET;
     }
     return raw_events;
 }
@@ -60,10 +68,14 @@ static inline int ucs_event_set_map_to_events(int raw_events)
     if (raw_events & EPOLLERR) {
          events |= UCS_EVENT_SET_EVERR;
     }
+    if (raw_events & EPOLLET) {
+        events  |= UCS_EVENT_SET_EVET;
+    }
     return events;
 }
 
-ucs_status_t ucs_event_set_create(ucs_sys_event_set_t **event_set_p)
+ucs_status_t
+ucs_event_set_create(ucs_sys_event_set_t **event_set_p, int user_fd)
 {
     ucs_sys_event_set_t *event_set;
     ucs_status_t status;
@@ -75,12 +87,19 @@ ucs_status_t ucs_event_set_create(ucs_sys_event_set_t **event_set_p)
         goto out_create;
     }
 
-    /* Create epoll set the thread will wait on */
-    event_set->epfd = epoll_create(1);
-    if (event_set->epfd < 0) {
-        ucs_error("epoll_create() failed: %m");
-        status = UCS_ERR_IO_ERROR;
-        goto err_free;
+    event_set->epfd  = user_fd;
+    event_set->flags = 0;
+
+    if (event_set->epfd == -1) {
+        /* Create epoll set the thread will wait on */
+        event_set->epfd = epoll_create(1);
+        if (event_set->epfd < 0) {
+            ucs_error("epoll_create() failed: %m");
+            status = UCS_ERR_IO_ERROR;
+            goto err_free;
+        }
+    } else {
+        event_set->flags |= UCS_SYS_EVENT_SET_EXTERNAL_EVENT_FD;
     }
 
     *event_set_p = event_set;
@@ -185,7 +204,9 @@ ucs_status_t ucs_event_set_wait(ucs_sys_event_set_t *event_set,
 
 void ucs_event_set_cleanup(ucs_sys_event_set_t *event_set)
 {
-    close(event_set->epfd);
+    if (!(event_set->flags & UCS_SYS_EVENT_SET_EXTERNAL_EVENT_FD)) {
+        close(event_set->epfd);
+    }
     ucs_free(event_set);
 }
 

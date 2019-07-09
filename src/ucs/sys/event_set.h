@@ -34,7 +34,8 @@ typedef void (*ucs_event_set_handler_t)(void *callback_data, int event,
 typedef enum {
     UCS_EVENT_SET_EVREAD  = UCS_BIT(0),
     UCS_EVENT_SET_EVWRITE = UCS_BIT(1),
-    UCS_EVENT_SET_EVERR   = UCS_BIT(2)
+    UCS_EVENT_SET_EVERR   = UCS_BIT(2),
+    UCS_EVENT_SET_EVET    = UCS_BIT(3)
 } ucs_event_set_type_t;
 
 /* The maximum possible number of events based on system constraints */
@@ -44,10 +45,15 @@ extern const unsigned ucs_sys_event_set_max_wait_events;
  * Allocate ucs_sys_event_set_t structure.
  *
  * @param [out] event_set_p  Event set pointer to initialize.
+ * @param [in]  user_fd      User defined event poll file descriptor. If -1 is
+ *                           specified, Event Set allocates new event poll
+ *                           file descriptor.
+ *                            
  *
  * @return UCS_OK on success or an error code on failure.
  */
-ucs_status_t ucs_event_set_create(ucs_sys_event_set_t **event_set_p);
+ucs_status_t
+ucs_event_set_create(ucs_sys_event_set_t **event_set_p, int user_fd);
 
 /**
  * Register the target event.

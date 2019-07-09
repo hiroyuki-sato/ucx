@@ -435,7 +435,7 @@ static UCS_CLASS_INIT_FUNC(uct_tcp_iface_t, uct_md_h md, uct_worker_h worker,
         goto err_cleanup_rx_mpool;
     }
 
-    status = ucs_event_set_create(&self->event_set);
+    status = ucs_event_set_create(&self->event_set, -1);
     if (status != UCS_OK) {
         status = UCS_ERR_IO_ERROR;
         goto err_cleanup_rx_mpool;

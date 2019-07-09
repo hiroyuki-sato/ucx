@@ -185,7 +185,7 @@ static ucs_status_t ucs_async_thread_start(ucs_async_thread_t **thread_p)
         goto err_timerq_cleanup;
     }
 
-    status = ucs_event_set_create(&thread->event_set);
+    status = ucs_event_set_create(&thread->event_set, -1);
     if (status != UCS_OK) {
         goto err_close_pipe;
     }
