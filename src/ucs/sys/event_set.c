@@ -15,7 +15,11 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>
+#else
+#include <sys/event.h>
+#endif
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
@@ -39,18 +43,31 @@ const unsigned ucs_sys_event_set_max_wait_events =
 static inline int ucs_event_set_map_to_raw_events(int events)
 {
     int raw_events = 0;
+    int ev_read,ev_write,ev_error,ev_et;
+
+#ifdef HAVE_SYS_EPOLL_H
+    ev_read  = EPOLLIN;
+    ev_write = EPOLLOUT;
+    ev_error = EPOLLERR;
+    ev_et    = EPOLLEET;
+#else
+    ev_read  = EVFILT_READ;
+    ev_write = EVFILT_WRITE;
+    ev_error = -1; /* TODO */
+    ev_et    = -1; /* TODO */
+#endif
 
     if (events & UCS_EVENT_SET_EVREAD) {
-         raw_events |= EPOLLIN;
+         raw_events |= ev_read;
     }
     if (events & UCS_EVENT_SET_EVWRITE) {
-         raw_events |= EPOLLOUT;
+         raw_events |= ev_error;
     }
     if (events & UCS_EVENT_SET_EVERR) {
-         raw_events |= EPOLLERR;
+         raw_events |= ev_error;
     }
     if (events & UCS_EVENT_SET_EVET) {
-        raw_events  |= EPOLLET;
+        raw_events  |= ev_et;
     }
     return raw_events;
 }
@@ -59,6 +76,7 @@ static inline int ucs_event_set_map_to_events(int raw_events)
 {
     int events = 0;
 
+#ifdef HAVE_SYS_EPOLL_H
     if (raw_events & EPOLLIN) {
          events |= UCS_EVENT_SET_EVREAD;
     }
@@ -71,6 +89,22 @@ static inline int ucs_event_set_map_to_events(int raw_events)
     if (raw_events & EPOLLET) {
         events  |= UCS_EVENT_SET_EVET;
     }
+#else
+    if (raw_events & EVFILT_READ) {
+         events |= UCS_EVENT_SET_EVREAD;
+    }
+    if (raw_events & EVFILT_WRITE) {
+         events |= UCS_EVENT_SET_EVWRITE;
+    }
+/* TODO
+    if (raw_events & EPOLLERR) {
+         events |= UCS_EVENT_SET_EVERR;
+    }
+    if (raw_events & EPOLLET) {
+        events  |= UCS_EVENT_SET_EVET;
+    }
+ */
+#endif
     return events;
 }
 
@@ -91,6 +125,7 @@ ucs_event_set_create(ucs_sys_event_set_t **event_set_p, int user_fd)
     event_set->flags = 0;
 
     if (event_set->epfd == -1) {
+#ifdef HAVE_SYS_EPOLL_H
         /* Create epoll set the thread will wait on */
         event_set->epfd = epoll_create(1);
         if (event_set->epfd < 0) {
@@ -98,6 +133,14 @@ ucs_event_set_create(ucs_sys_event_set_t **event_set_p, int user_fd)
             status = UCS_ERR_IO_ERROR;
             goto err_free;
         }
+#else
+        event_set->epfd = kqueue();
+        if ( event_set->epfd == -1 ) {
+            ucs_error("kqueue() failed: %m");
+            status = UCS_ERR_IO_ERROR;
+            goto err_free;
+        }
+#endif
     } else {
         event_set->flags |= UCS_SYS_EVENT_SET_EXTERNAL_EVENT_FD;
     }
@@ -114,9 +157,15 @@ out_create:
 ucs_status_t ucs_event_set_add(ucs_sys_event_set_t *event_set, int event_fd,
                                ucs_event_set_type_t events, void *callback_data)
 {
+#ifdef HAVE_SYS_EPOLL_H
     struct epoll_event raw_event;
+#else
+    struct kevent kq_event;
+    int kq_filter;
+#endif
     int ret;
 
+#ifdef HAVE_SYS_EPOLL_H
     memset(&raw_event, 0, sizeof(raw_event));
     raw_event.events   = ucs_event_set_map_to_raw_events(events);
     raw_event.data.ptr = callback_data;
@@ -127,7 +176,15 @@ ucs_status_t ucs_event_set_add(ucs_sys_event_set_t *event_set, int event_fd,
                   event_fd);
         return UCS_ERR_IO_ERROR;
     }
+#else
+    memset(&kqev, 0, sizeof(kq_event));
+    kq_filter = ucs_event_set_map_to_raw_events(events);
+    /* TODO */
+    EV_SET(&kq_event, event_fd, kq_filter, EV_MOD, 0, 0, NULL);
+    ret = kevent(event_set->epfd, &kqev, 1, NULL, 0, NULL);
+    
 
+#endif
     return UCS_OK;
 }
 
