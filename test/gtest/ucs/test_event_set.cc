@@ -114,6 +114,7 @@ protected:
             status = ucs_event_set_add(m_event_set, fd,
                                        (ucs_event_set_type_t)events,
                                        (void *)(uintptr_t)fd);
+            break;
         case EVENT_SET_OP_MOD:
             status = ucs_event_set_mod(m_event_set, fd,
                                        (ucs_event_set_type_t)events,
@@ -262,7 +263,8 @@ UCS_TEST_P(test_event_set, ucs_event_set_trig_modes) {
         event_set_wait(0u, 0, event_set_func1, arg);
     }
 
-    /* Call the function below directly to read all outstanding data from pipe fd */
+    /* Call the function below directly to read
+     * all outstanding data from pipe fd */
     event_set_func1((void*)(uintptr_t)m_pipefd[0], UCS_EVENT_SET_EVREAD, arg);
 
     event_set_ctl(EVENT_SET_OP_DEL, m_pipefd[0], 0);
@@ -270,5 +272,6 @@ UCS_TEST_P(test_event_set, ucs_event_set_trig_modes) {
 }
 
 INSTANTIATE_TEST_CASE_P(ext_fd, test_event_set,
-                        ::testing::Values(static_cast<int>(UCS_EVENT_SET_EXTERNAL_FD)));
+                        ::testing::Values(static_cast<int>(
+                                              UCS_EVENT_SET_EXTERNAL_FD)));
 INSTANTIATE_TEST_CASE_P(int_fd, test_event_set, ::testing::Values(0));

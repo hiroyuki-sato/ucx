@@ -48,7 +48,6 @@ extern const unsigned ucs_sys_event_set_max_wait_events;
  * @param [in]  user_fd      User defined event poll file descriptor. If -1 is
  *                           specified, Event Set allocates new event poll
  *                           file descriptor.
- *                            
  *
  * @return UCS_OK on success or an error code on failure.
  */

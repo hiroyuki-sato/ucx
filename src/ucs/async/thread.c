@@ -17,7 +17,6 @@
 #include <ucs/sys/stubs.h>
 #include <ucs/sys/event_set.h>
 
-
 #define UCS_ASYNC_EPOLL_MAX_EVENTS      16
 #define UCS_ASYNC_EPOLL_MIN_TIMEOUT_MS  2.0
 
