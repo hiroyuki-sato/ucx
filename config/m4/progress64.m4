@@ -3,7 +3,6 @@
 # See file LICENSE for terms.
 #
 
-# TODO REMOVE
 AC_ARG_WITH([progress64],
             [AC_HELP_STRING([--with-progress64=(DIR)],
                             [Enable the use of PROGRESS64 (default is autodetect).])
@@ -32,15 +31,7 @@ done])
 #
 # Check for PROGRESS64 support
 #
-AC_DEFUN([UCX_CHECK_PROGRESS64],[
-
 AS_IF([test "x$progress64_checked" != "xyes"],[
-
-AC_ARG_WITH([progress64],
-    [AS_HELP_STRING([--with-progress64=(DIR)],
-        [Enable the use of PROGRESS64 (default is autodetect).])],
-    [],
-    [with_progress64=guess])
 
 progress64_happy=no
 AS_IF([test "x$with_progress64" != "xno"],
@@ -93,6 +84,4 @@ AS_IF([test "x$with_progress64" != "xno"],
 progress64_checked=yes
 AM_CONDITIONAL([HAVE_PROGRESS64], [test "x$progress64_happy" != xno])
 
-])
-
-])
+]) # AC_IF
