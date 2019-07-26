@@ -44,8 +44,8 @@ AS_IF([test "x$with_progress64" != "xno"],
              PROGRESS64_LIBS="-lprogress64"],
         [x/*],
             [AC_MSG_NOTICE([PROGRESS64 path given as $with_progress64 ...])
-             PROGRESS64_CPPFLAGS="-I$with_progress64/include/hsa -I$with_progress64/include"
-             PROGRESS64_LDFLAGS="-L$with_progress64/hsa/lib -L$with_progress64/lib"
+             PROGRESS64_CPPFLAGS="-I$with_progress64/include"
+             PROGRESS64_LDFLAGS="-L$with_progress64/lib -L$with_progress64"
              PROGRESS64_LIBS="-lprogress64"],
         [AC_MSG_NOTICE([PROGRESS64 flags given ...])
          PROGRESS64_PARSE_FLAGS([with_progress64],
