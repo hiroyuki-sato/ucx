@@ -60,13 +60,13 @@ AS_IF([test "x$with_progress64" != "xno"],
 
     progress64_happy=yes
     AS_IF([test "x$progress64_happy" = xyes],
-          [AC_CHECK_HEADERS([hsa_ext_amd.h], [progress64_happy=yes], [progress64_happy=no])])
+          [AC_CHECK_HEADERS([p64_spinlock.h], [progress64_happy=yes], [progress64_happy=no])])
     AS_IF([test "x$progress64_happy" = xyes],
-          [AC_SEARCH_LIBS([hsa_init], [hsa-runtime64])
-           AS_CASE(["x$ac_cv_search_hsa_init"],
+          [AC_SEARCH_LIBS([p64_spinlock])
+           AS_CASE(["x$ac_cv_search_p64_spinlock"],
                [xnone*], [],
                [xno], [progress64_happy=no],
-               [x-l*], [PROGRESS64_LIBS="$ac_cv_search_hsa_init $PROGRESS64_LIBS"])])
+               [x-l*], [PROGRESS64_LIBS="$ac_cv_search_p64_spinlock $PROGRESS64_LIBS"])])
 
     CPPFLAGS="$SAVE_CPPFLAGS"
     LDFLAGS="$SAVE_LDFLAGS"
@@ -76,7 +76,7 @@ AS_IF([test "x$with_progress64" != "xno"],
           [AC_SUBST([PROGRESS64_CPPFLAGS])
            AC_SUBST([PROGRESS64_LDFLAGS])
            AC_SUBST([PROGRESS64_LIBS])],
-          [AC_MSG_WARN([PROGRESS64 not found])])
+          [AC_MSG_ERROR([PROGRESS64 not found])])
     ],
     [AC_MSG_WARN([PROGRESS64 was explicitly disabled])]
 )
