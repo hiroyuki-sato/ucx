@@ -518,8 +518,6 @@ ucs_status_t ucs_async_remove_handler(int id, int sync)
 
     if (sync) {
         while (handler->refcount > 1) {
-            /* TODO use pthread_cond / futex to reduce CPU usage while waiting
-             * for the async handler to complete */
             sched_yield();
         }
     }

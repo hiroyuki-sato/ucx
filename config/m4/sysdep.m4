@@ -277,7 +277,6 @@ AC_CHECK_HEADERS([endian.h, sys/endian.h])
 #
 AC_CHECK_HEADERS([linux/mman.h])
 AC_CHECK_HEADERS([linux/ip.h])
-AC_CHECK_HEADERS([linux/futex.h])
 
 
 #
