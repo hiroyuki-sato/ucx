@@ -37,7 +37,7 @@ AC_CHECK_DECLS([asprintf, basename, fmemopen], [],
 #
 AC_CHECK_HEADERS([sys/cpuset.h])
 AC_CHECK_DECLS([CPU_ZERO, CPU_ISSET], [], 
-				AC_MSG_ERROR([CPU_ZERO/CPU_ISSET not found]), 
+				AC_MSG_NOTICE([CPU_ZERO/CPU_ISSET not found]), 
 				[#define _GNU_SOURCE 1
 				 #include <sys/types.h>
 				 #include <sched.h>
