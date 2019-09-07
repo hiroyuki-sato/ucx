@@ -62,7 +62,7 @@ AS_IF([test "x$with_progress64" != "xno"],
     AS_IF([test "x$progress64_happy" = xyes],
           [AC_CHECK_HEADERS([p64_spinlock.h], [progress64_happy=yes], [progress64_happy=no])])
     AS_IF([test "x$progress64_happy" = xyes],
-          [AC_SEARCH_LIBS([p64_spinlock])
+          [AC_SEARCH_LIBS([p64_spinlock_init])
            AS_CASE(["x$ac_cv_search_p64_spinlock"],
                [xnone*], [],
                [xno], [progress64_happy=no],
