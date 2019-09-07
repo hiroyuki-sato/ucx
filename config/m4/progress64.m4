@@ -84,4 +84,4 @@ AS_IF([test "x$with_progress64" != "xno"],
 progress64_checked=yes
 AM_CONDITIONAL([HAVE_PROGRESS64], [test "x$progress64_happy" != xno])
 
-]) # AC_IF
+]) # AS_IF
