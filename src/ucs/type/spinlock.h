@@ -11,6 +11,10 @@
 #include <pthread.h>
 #include <errno.h>
 
+#ifdef HAVE_PROGRESS64
+#include <p64_spinlock.h>
+#endif
+
 BEGIN_C_DECLS
 
 /** @file spinlock.h */
@@ -19,7 +23,11 @@ BEGIN_C_DECLS
  * Reentrant spinlock.
  */
 typedef struct ucs_spinlock {
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_t     lock;
+#else
     pthread_spinlock_t lock;
+#endif
     int                count;
     pthread_t          owner;
 } ucs_spinlock_t;
@@ -29,12 +37,18 @@ typedef struct ucs_spinlock {
 
 static inline ucs_status_t ucs_spinlock_init(ucs_spinlock_t *lock)
 {
+#ifndef HAVE_PROGRESS64
     int ret;
+#endif
 
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_init(&lock->lock);
+#else
     ret = pthread_spin_init(&lock->lock, 0);
     if (ret != 0) {
         return UCS_ERR_IO_ERROR;
     }
+#endif
 
     lock->count = 0;
     lock->owner = UCS_SPINLOCK_OWNER_NULL;
@@ -44,12 +58,15 @@ static inline ucs_status_t ucs_spinlock_init(ucs_spinlock_t *lock)
 
 static inline ucs_status_t ucs_spinlock_destroy(ucs_spinlock_t *lock)
 {
+#ifndef HAVE_PROGRESS64
     int ret;
+#endif
 
     if (lock->count != 0) {
         return UCS_ERR_BUSY;
     }
 
+#ifndef HAVE_PROGRESS64
     ret = pthread_spin_destroy(&lock->lock);
     if (ret != 0) {
         if (errno == EBUSY) {
@@ -58,6 +75,7 @@ static inline ucs_status_t ucs_spinlock_destroy(ucs_spinlock_t *lock)
             return UCS_ERR_INVALID_PARAM;
         }
     }
+#endif
 
     return UCS_OK;
 }
@@ -76,7 +94,11 @@ static inline void ucs_spin_lock(ucs_spinlock_t *lock)
         return;
     }
 
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_try_acquire(&lock->lock);
+#else
     pthread_spin_lock(&lock->lock);
+#endif
     lock->owner = self;
     ++lock->count;
 }
@@ -90,9 +112,15 @@ static inline int ucs_spin_trylock(ucs_spinlock_t *lock)
         return 1;
     }
 
+#ifdef HAVE_PROGRESS64
+    if (p64_spinlock_try_acquire(&lock->lock) != true) {
+        return 0;
+    }
+#else
     if (pthread_spin_trylock(&lock->lock) != 0) {
         return 0;
     }
+#endif
 
     lock->owner = self;
     ++lock->count;
@@ -104,7 +132,11 @@ static inline void ucs_spin_unlock(ucs_spinlock_t *lock)
     --lock->count;
     if (lock->count == 0) {
         lock->owner = UCS_SPINLOCK_OWNER_NULL;
+#ifdef HAVE_PROGRESS64
+        p64_spinlock_release(&lock->lock);
+#else
         pthread_spin_unlock(&lock->lock);
+#endif
     }
 }
 
