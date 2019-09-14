@@ -57,3 +57,7 @@ libucm_la_SOURCES += \
 noinst_HEADERS += \
     ptmalloc286/malloc-2.8.6.h
 endif
+
+if HAVE_PROGRESS64
+libucm_la_CFLAGS += $(PROGRESS64_CPPFLAGS)
+endif
