@@ -60,7 +60,7 @@ AS_IF([test "x$with_progress64" != "xno"],
 
     progress64_happy=yes
     AS_IF([test "x$progress64_happy" = xyes],
-          [AC_CHECK_HEADERS([p64_spinlock.h], [progress64_happy=yes], [progress64_happy=no])])
+          [AC_CHECK_HEADERS([p64_spinlock.h], [progress64_happy=yes], [progress64_happy=no])],[])
     AS_IF([test "x$progress64_happy" = xyes],
           [AC_SEARCH_LIBS([p64_spinlock_init])
            AS_CASE(["x$ac_cv_search_p64_spinlock"],
@@ -75,7 +75,7 @@ AS_IF([test "x$with_progress64" != "xno"],
     AS_IF([test "x$progress64_happy" = "xyes"],
           [AC_SUBST([PROGRESS64_CPPFLAGS])
            AC_SUBST([PROGRESS64_LDFLAGS])
-           AC_SUBST([PROGRESS64_LIBS]),
+           AC_SUBST([PROGRESS64_LIBS])
            AC_DEFINE([HAVE_PROGRESS64], 1, [Enable PROGRESS64 support])],
           [AC_MSG_ERROR([PROGRESS64 not found])])
     ],
@@ -85,4 +85,4 @@ AS_IF([test "x$with_progress64" != "xno"],
 progress64_checked=yes
 AM_CONDITIONAL([HAVE_PROGRESS64], [test "x$progress64_happy" != xno])
 
-]) # AS_IF
+],[AC_MSG_WARN([PROGRESS64 disabled])])
