@@ -13,6 +13,9 @@
 #include <ucs/sys/sys.h>
 #include <ucs/sys/math.h>
 #include <ucs/config/parser.h>
+#ifdef HAVE_PROGRESS64
+#include <p64_spinlock.h>
+#endif
 
 #define UCS_MAX_LOG_HANDLERS    32
 
@@ -40,7 +43,11 @@ static int  ucs_log_pid                     = 0;
 static FILE *ucs_log_file                   = NULL;
 static int ucs_log_file_close               = 0;
 static unsigned threads_count               = 0;
+#ifdef HAVE_PROGRESS64
+static p64_spinlock_t     threads_lock;
+#else
 static pthread_spinlock_t threads_lock      = 0;
+#endif
 static pthread_t threads[128]               = {0};
 static ucs_log_func_t ucs_log_handlers[UCS_MAX_LOG_HANDLERS];
 
@@ -56,7 +63,11 @@ static int ucs_log_get_thread_num(void)
         }
     }
 
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_try_acquire(&threads_lock);
+#else
     pthread_spin_lock(&threads_lock);
+#endif
 
     for (i = 0; i < threads_count; ++i) {
         if (threads[i] == self) {
@@ -74,7 +85,11 @@ static int ucs_log_get_thread_num(void)
     threads[i] = self;
 
 unlock_and_return_i:
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_release(&threads_lock);
+#else
     pthread_spin_unlock(&threads_lock);
+#endif
     return i;
 }
 
@@ -295,7 +310,11 @@ void ucs_log_early_init()
     ucs_log_file             = NULL;
     ucs_log_file_close       = 0;
     threads_count            = 0;
+#if HAVE_PROGRESS64
+    p64_spinlock_init(&threads_lock);
+#else
     pthread_spin_init(&threads_lock, 0);
+#endif
 }
 
 void ucs_log_init()
@@ -326,7 +345,9 @@ void ucs_log_cleanup()
     if (ucs_log_file_close) {
         fclose(ucs_log_file);
     }
+#ifndef HAVE_PROGRESS64
     pthread_spin_destroy(&threads_lock);
+#endif
     ucs_log_file           = NULL;
     ucs_log_initialized    = 0;
     ucs_log_handlers_count = 0;
