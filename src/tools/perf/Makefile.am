@@ -23,6 +23,10 @@ ucx_perftest_LDADD    = \
 	$(abs_top_builddir)/src/ucs/libucs.la \
 	lib/libucxperf.la
 
+if HAVE_PROGRESS64
+ucx_perftest_CFLAGS += $(PROGRESS64_CPPFLAGS)
+endif
+
 perftestdir = $(pkgdatadir)/perftest
 dist_perftest_DATA = \
 	$(top_srcdir)/contrib/ucx_perftest_config/msg_pow2 \
