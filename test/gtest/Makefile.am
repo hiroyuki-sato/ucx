@@ -213,6 +213,10 @@ gtest_LDADD += \
 	$(top_builddir)/src/uct/cuda/libuct_cuda.la
 endif
 
+if HAVE_PROGRESS64
+gtest_CFLAGS += $(PROGRESS64_CPPFLAGS)
+endif
+
 noinst_HEADERS = \
 	common/gtest.h \
 	common/mem_buffer.h \

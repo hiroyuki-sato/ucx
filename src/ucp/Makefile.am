@@ -109,3 +109,6 @@ libucp_la_SOURCES = \
 	stream/stream_send.c \
 	stream/stream_recv.c
 
+if HAVE_PROGRESS64
+libucp_la_CFLAGS += $(PROGRESS64_CPPFLAGS)
+endif

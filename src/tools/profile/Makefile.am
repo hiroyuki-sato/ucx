@@ -8,3 +8,7 @@ bin_PROGRAMS              = ucx_read_profile
 ucx_read_profile_CPPFLAGS = $(BASE_CPPFLAGS)
 ucx_read_profile_CFLAGS   = $(BASE_CFLAGS)
 ucx_read_profile_SOURCES  = read_profile.c
+
+if HAVE_PROGRESS64
+ucx_read_profile_CFLAGS += $(PROGRESS64_CPPFLAGS)
+endif
