@@ -78,3 +78,7 @@ libuct_la_SOURCES = \
 	tcp/sockcm/sockcm_iface.c \
 	tcp/sockcm/sockcm_ep.c \
 	tcp/sockcm/sockcm_md.c
+
+if HAVE_PROGRESS64
+libuct_la_CFLAGS += $(PROGRESS64_CPPFLAGS)
+endif
