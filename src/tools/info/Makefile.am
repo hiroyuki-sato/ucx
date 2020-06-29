@@ -44,3 +44,7 @@ ucx_info_LDADD    = \
     $(abs_top_builddir)/src/ucp/libucp.la \
     $(abs_top_builddir)/src/ucs/libucs.la \
     $(abs_top_builddir)/src/ucm/libucm.la
+
+if HAVE_PROGRESS64
+ucx_info_CFLAGS += $(PROGRESS64_CPPFLAGS)
+endif
