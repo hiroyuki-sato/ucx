@@ -19,8 +19,88 @@
 #include <ucs/sys/sys.h>
 #include <signal.h>
 
-#define UCS_SIGNAL_MAX_TIMERQS  64
+#ifdef __APPLE__
 
+static void ucs_async_signal_block_all()
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+}
+
+static void ucs_async_signal_unblock_all()
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+}
+
+static ucs_status_t ucs_async_signal_init(ucs_async_context_t *async)
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+    return UCS_OK;
+}
+
+static void ucs_async_signal_cleanup(ucs_async_context_t *async)
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+}
+
+static ucs_status_t ucs_async_signal_modify_event_fd(ucs_async_context_t *async,
+                                                     int event_fd, int events)
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+    return UCS_OK;
+}
+
+static ucs_status_t ucs_async_signal_add_event_fd(ucs_async_context_t *async,
+                                                  int event_fd, int events)
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+    return UCS_OK;
+}
+
+static ucs_status_t ucs_async_signal_remove_event_fd(ucs_async_context_t *async, int event_fd)
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+    return UCS_OK;
+}
+
+static int ucs_async_signal_try_block(ucs_async_context_t *async)
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+    return 0;
+}
+
+static void ucs_async_signal_unblock(ucs_async_context_t *async)
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+}
+
+static ucs_status_t ucs_async_signal_add_timer(ucs_async_context_t *async,
+                                               int timer_id, ucs_time_t interval)
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+    return UCS_OK;
+}
+
+static ucs_status_t ucs_async_signal_remove_timer(ucs_async_context_t *async,
+                                                  int timer_id)
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+    return UCS_OK;
+}
+
+static void ucs_async_signal_global_init()
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+}
+
+static void ucs_async_signal_global_cleanup()
+{
+    ucs_warn("macOS doesn't support signal mode yet");
+}
+
+#else
+
+
+#define UCS_SIGNAL_MAX_TIMERQS  64
 /*
  * Per-thread system timer and software timer queue. We can dispatch timers only
  * on the same thread which added them.
@@ -613,6 +693,8 @@ static void ucs_async_signal_global_cleanup()
     }
     pthread_mutex_destroy(&ucs_async_signal_global_context.timers_lock);
 }
+
+#endif /* __APPLE__ */
 
 ucs_async_ops_t ucs_async_signal_ops = {
     .init               = ucs_async_signal_global_init,
