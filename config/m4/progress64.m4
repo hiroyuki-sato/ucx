@@ -77,7 +77,7 @@ AS_IF([test "x$with_progress64" != "xno"],
            AC_SUBST([PROGRESS64_LDFLAGS])
            AC_SUBST([PROGRESS64_LIBS]),
            AC_DEFINE([HAVE_PROGRESS64], 1, [Enable PROGRESS64 support])],
-          [AC_MSG_ERROR([PROGRESS64 not found])])
+          [AC_MSG_WARN([PROGRESS64 not found])])
     ],
     [AC_MSG_WARN([PROGRESS64 was explicitly disabled])]
 )
