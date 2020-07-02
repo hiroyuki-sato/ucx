@@ -14,6 +14,11 @@ libucp_la_LDFLAGS  = -ldl -version-info $(SOVERSION)
 libucp_la_LIBADD   = ../ucs/libucs.la ../uct/libuct.la
 libucp_ladir       = $(includedir)/ucp
 
+if HAVE_PROGRESS64
+libucp_la_CFLAGS  += $(PROGRESS64_CPPFLAGS)
+libucp_la_LDFLAGS += $(PROGRESS64_LDFLAGS) $(PROGRESS64_LIBS)
+endif
+
 nobase_dist_libucp_la_HEADERS = \
 	api/ucp_compat.h \
 	api/ucp_def.h \
