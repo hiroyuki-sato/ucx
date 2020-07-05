@@ -35,10 +35,18 @@
 #include <sys/thr.h>
 #endif
 
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#include <mach-o/dyld.h>
+#include <sys/socket.h>
+#include <net/if_dl.h>
+#include <ifaddrs.h>
+#else /* __APPLE__ */
 #if HAVE_SYS_CAPABILITY_H
 #  include <sys/capability.h>
 #endif
 
+#endif /* __APPLE__ */
 /* Default huge page size is 2 MBytes */
 #define UCS_DEFAULT_MEM_FREE       640000
 #define UCS_PROCESS_SMAPS_FILE     "/proc/self/smaps"
@@ -73,7 +81,9 @@ typedef struct {
 } ucs_sys_enum_threads_t;
 
 
+#ifndef __APPLE__
 static const char *ucs_pagemap_file = "/proc/self/pagemap";
+#endif /* __APPLE__ */
 
 
 const char *ucs_get_tmpdir()
@@ -88,6 +98,9 @@ const char *ucs_get_tmpdir()
     }
 }
 
+#ifndef HOST_NAME_MAX
+#define HOST_NAME_MAX 1024 // temporary
+#endif
 const char *ucs_get_host_name()
 {
     static char hostname[HOST_NAME_MAX] = {0};
@@ -101,12 +114,16 @@ const char *ucs_get_host_name()
 
 const char *ucs_get_user_name()
 {
+#ifndef __APPLE__
     static char username[256] = {0};
 
     if (*username == 0) {
         getlogin_r(username, sizeof(username));
     }
     return username;
+#else
+   return getlogin();
+#endif
 }
 
 void ucs_expand_path(const char *path, char *fullpath, size_t max)
@@ -127,8 +144,15 @@ const char *ucs_get_exe()
 {
     static char exe[1024];
     int ret;
+#ifdef __APPLE__
+    uint32_t exe_size = sizeof(exe);
+#endif
 
+#ifdef __APPLE__
+    ret = _NSGetExecutablePath(exe, &exe_size);
+#else
     ret = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
+#endif
     if (ret < 0) {
         exe[0] = '\0';
     } else {
@@ -165,12 +189,18 @@ uint32_t ucs_file_checksum(const char *filename)
 static uint64_t ucs_get_mac_address()
 {
     static uint64_t mac_address = 0;
+#ifndef __APPLE__
     struct ifreq ifr, *it, *end;
     struct ifconf ifc;
     char buf[1024];
     int sock;
+#else
+    struct ifaddrs *ifap, *ifaptr;
+    uint64_t *ptr;
+#endif
 
     if (mac_address == 0) {
+#ifndef __APPLE__
         sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
         if (sock == -1) {
             ucs_error("failed to create socket: %m");
@@ -209,6 +239,20 @@ static uint64_t ucs_get_mac_address()
 
         close(sock);
         ucs_trace("MAC address is 0x%012"PRIX64, mac_address);
+#else
+        if (getifaddrs(&ifap) == 0) {
+            for(ifaptr = ifap; ifaptr != NULL; ifaptr = (ifaptr)->ifa_next) {
+                // FIXME
+                if ((((ifaptr)->ifa_addr)->sa_family == AF_LINK) && !strncmp((ifaptr)->ifa_name, "en0",3)) {
+                    ptr = (uint64_t *)LLADDR((struct sockaddr_dl *)(ifaptr)->ifa_addr);
+                    memcpy(&mac_address,ptr, 6);
+                    ucs_trace("MAC address is 0x%012"PRIX64, mac_address);
+                    break;
+                }
+            }
+            freeifaddrs(ifap);
+        }
+#endif
     }
 
     return mac_address;
@@ -239,6 +283,20 @@ uint64_t ucs_machine_guid()
            __sumup_host_name(1);
 }
 
+#ifdef __APPLE__
+static int ucs_sysctlbyname(const char *name, void *buf, size_t *buflen)
+{
+    int ret;
+
+    ret = sysctlbyname(name, buf, buflen, NULL, 0);
+    if( ret != 0 ){
+        perror("sysctlbyname");
+        ucs_warn("Can't get %s param",name);
+        return UCS_ERR_IO_ERROR;
+    }
+    return UCS_OK;
+}
+#else
 /*
  * If a certain system constant (name) is undefined on the underlying system the
  * sysconf routine returns -1.  ucs_sysconf return the negative value
@@ -258,12 +316,20 @@ static long ucs_sysconf(int name)
 
     return rc;
 }
+#endif /* __APPLE__ */
 
 int ucs_get_first_cpu()
 {
-    int first_cpu, total_cpus, ret;
+    int ret;
+#ifdef __APPLE__
+    int32_t total_cpus;
+    size_t total_cpus_size = sizeof(total_cpus);
+#else
+    int first_cpu, total_cpus;
     ucs_sys_cpuset_t mask;
+#endif
 
+#ifndef __APPLE__
     ret = ucs_sysconf(_SC_NPROCESSORS_CONF);
     if (ret < 0) {
         ucs_error("failed to get local cpu count: %m");
@@ -283,6 +349,13 @@ int ucs_get_first_cpu()
             return first_cpu;
         }
     }
+#else
+    ret = ucs_sysctlbyname("hw.logicalcpu", &total_cpus, &total_cpus_size);
+    if (ret != UCS_OK) {
+        ucs_error("failed to get local cpu count: %m");
+        return ret;
+    }
+#endif
 
     return total_cpus;
 }
@@ -489,15 +562,29 @@ ssize_t ucs_read_file_str(char *buffer, size_t max, int silent,
 
 size_t ucs_get_page_size()
 {
+#ifdef __APPLE__
+    static int64_t page_size = 0;
+    size_t page_size_len = sizeof(page_size);
+    int ret;
+#else
     static long page_size = 0;
+#endif
+
 
     if (page_size == 0) {
+#ifdef __APPLE__
+        ret = ucs_sysctlbyname("hw.pagesize", &page_size, &page_size_len);
+        if( ret != UCS_OK ){
+            page_size = 4096; // FIXME
+        }
+#else
         page_size = ucs_sysconf(_SC_PAGESIZE);
         if (page_size < 0) {
             page_size = 4096;
             ucs_debug("_SC_PAGESIZE is undefined, setting default value to %ld",
                       page_size);
         }
+#endif
     }
     return page_size;
 }
@@ -572,6 +659,7 @@ typedef struct {
     size_t max_page_size;
 } ucs_mem_page_size_info_t;
 
+#ifndef __APPLE__
 static void ucs_get_mem_page_size_cb(ucs_sys_vma_info_t *mem_info, void *ctx)
 {
     ucs_mem_page_size_info_t *info = (ucs_mem_page_size_info_t *)ctx;
@@ -585,10 +673,12 @@ static void ucs_get_mem_page_size_cb(ucs_sys_vma_info_t *mem_info, void *ctx)
         info->max_page_size = mem_info->page_size;
     }
 }
+#endif
 
 void ucs_get_mem_page_size(void *address, size_t size, size_t *min_page_size_p,
                            size_t *max_page_size_p)
 {
+#ifndef __APPLE__
     ucs_mem_page_size_info_t info = {};
 
     ucs_sys_iterate_vm(address, size, ucs_get_mem_page_size_cb, &info);
@@ -599,8 +689,13 @@ void ucs_get_mem_page_size(void *address, size_t size, size_t *min_page_size_p,
     } else {
         *min_page_size_p = *max_page_size_p = ucs_get_page_size();
     }
+#else
+    // macOS doesn't support HugePageSize
+    *min_page_size_p = *max_page_size_p = ucs_get_page_size();
+#endif
 }
 
+#ifndef __APPLE__
 static ssize_t ucs_get_meminfo_entry(const char* pattern)
 {
     char buf[256];
@@ -624,10 +719,12 @@ static ssize_t ucs_get_meminfo_entry(const char* pattern)
 
     return val_b;
 }
+#endif
 
 size_t ucs_get_memfree_size()
 {
     ssize_t mem_free;
+#ifndef __APPLE__
 
     mem_free = ucs_get_meminfo_entry("MemFree");
     if (mem_free == -1) {
@@ -635,6 +732,10 @@ size_t ucs_get_memfree_size()
         ucs_info("cannot determine free mem size, using default: %zu",
                   mem_free);
     }
+#else
+    /* FIXME I'm not sure how to get freemem on macOS yet */
+    mem_free = UCS_DEFAULT_MEM_FREE;
+#endif
 
     return mem_free;
 }
@@ -645,12 +746,17 @@ ssize_t ucs_get_huge_page_size()
 
     /* Cache the huge page size value */
     if (huge_page_size == 0) {
+#ifndef __APPLE__
         huge_page_size = ucs_get_meminfo_entry("Hugepagesize");
         if (huge_page_size == -1) {
             ucs_debug("huge pages are not supported on the system");
         } else {
             ucs_trace("detected huge page size: %zu", huge_page_size);
         }
+#else
+        ucs_warn("macOS doesn't support HugePageSize\n");
+        huge_page_size = ucs_get_page_size();
+#endif
     }
 
     return huge_page_size;
@@ -658,10 +764,24 @@ ssize_t ucs_get_huge_page_size()
 
 size_t ucs_get_phys_mem_size()
 {
+#ifdef __APPLE__
+    static int64_t phys_mem_size;
+    size_t phys_mem_size_len = sizeof(phys_mem_size);
+    int ret;
+#else
     static size_t phys_mem_size = 0;
     long phys_pages;
+#endif
 
     if (phys_mem_size == 0) {
+#ifdef __APPLE__
+        ret = ucs_sysctlbyname("hw.memsize", &phys_mem_size,
+                               &phys_mem_size_len);
+        if (ret != UCS_OK){
+            ucs_error("Can't get hw.memsize");
+            // FIXME error handling.
+        }
+#else
         phys_pages = ucs_sysconf(_SC_PHYS_PAGES);
         if (phys_pages < 0) {
             ucs_debug("_SC_PHYS_PAGES is undefined, setting default value to %ld",
@@ -670,13 +790,17 @@ size_t ucs_get_phys_mem_size()
         } else {
             phys_mem_size = phys_pages * ucs_get_page_size();
         }
+#endif
     }
     return phys_mem_size;
 }
 
+#ifndef __APPLE__
 #define UCS_SYS_THP_ENABLED_FILE "/sys/kernel/mm/transparent_hugepage/enabled"
+#endif
 int ucs_is_thp_enabled()
 {
+#ifndef __APPLE__
     char buf[256];
     int rc;
 
@@ -688,23 +812,40 @@ int ucs_is_thp_enabled()
 
     buf[rc] = 0;
     return (strstr(buf, "[never]") == NULL);
+#else
+    // FIXME
+    return 0;
+#endif
 }
 
+#ifndef __APPLE__
 #define UCS_PROC_SYS_SHMMAX_FILE "/proc/sys/kernel/shmmax"
+#endif
 size_t ucs_get_shmmax()
 {
     ucs_status_t status;
     long size;
+#ifdef __APPLE__
+    size_t size_len = sizeof(size);
+#endif
 
+#ifdef __APPLE__
+    status = ucs_sysctlbyname("kern.sysv.shmmax",&size,&size_len);
+    if (status != UCS_OK) {
+        ucs_error("Can't get kern.sysv.shmmax value");
+    }
+#else
     status = ucs_read_file_number(&size, 0, UCS_PROC_SYS_SHMMAX_FILE);
     if (status != UCS_OK) {
         ucs_warn("failed to read %s:%m", UCS_PROC_SYS_SHMMAX_FILE);
         return 0;
     }
+#endif
 
     return size;
 }
 
+#ifndef __APPLE__
 static void ucs_sysv_shmget_error_check_ENOSPC(size_t alloc_size,
                                                const struct shminfo *ipc_info,
                                                char *buf, size_t max)
@@ -741,6 +882,7 @@ static void ucs_sysv_shmget_error_check_ENOSPC(size_t alloc_size,
                  new_shm_tot, ipc_info->shmall);
     }
 }
+#endif
 
 ucs_status_t ucs_sys_get_proc_cap(uint32_t *effective)
 {
@@ -766,6 +908,7 @@ ucs_status_t ucs_sys_get_proc_cap(uint32_t *effective)
 #endif
 }
 
+#ifndef __APPLE__
 static void ucs_sysv_shmget_error_check_EPERM(int flags, char *buf, size_t max)
 {
 #if HAVE_SYS_CAPABILITY_H
@@ -784,12 +927,18 @@ static void ucs_sysv_shmget_error_check_EPERM(int flags, char *buf, size_t max)
     snprintf(buf, max,
              ", please check for CAP_IPC_LOCK privilege for using SHM_HUGETLB");
 }
+#endif
 
 static void ucs_sysv_shmget_format_error(size_t alloc_size, int flags,
                                          const char *alloc_name, int sys_errno,
                                          char *buf, size_t max)
 {
+#ifdef __APPLE__
+    int shmmax;
+    size_t shmmax_size;
+#else
     struct shminfo ipc_info;
+#endif
     char *p, *endp, *errp;
     int ret;
 
@@ -802,6 +951,17 @@ static void ucs_sysv_shmget_format_error(size_t alloc_size, int flags,
     p   += strlen(p);
     errp = p; /* save current string pointer to detect if anything was added */
 
+#ifdef __APPLE__
+    ret = ucs_sysctlbyname("kern.sysv.shmmax", &shmmax, &shmmax_size);
+    if (ret != UCS_OK) {
+        ucs_error("Can't get shmmax");
+    }
+    if (alloc_size > shmmax){
+        snprintf(p, endp - p,
+                 ", allocation size exceeds (=%d)",shmmax);
+        p += strlen(p);
+    }
+#else
     ret = shmctl(0, IPC_INFO, (struct shmid_ds *)&ipc_info);
     if (ret >= 0) {
         if ((sys_errno == EINVAL) && (alloc_size > ipc_info.shmmax)) {
@@ -821,6 +981,7 @@ static void ucs_sysv_shmget_format_error(size_t alloc_size, int flags,
         ucs_sysv_shmget_error_check_EPERM(flags, p, endp - p);
         p += strlen(p);
     }
+#endif
 
     /* default error message if no useful information was added to the string */
     if (p == errp) {
@@ -1021,6 +1182,7 @@ int ucs_get_mem_prot(unsigned long start, unsigned long end)
 
 const char* ucs_get_process_cmdline()
 {
+#ifndef __APPLE__
     static char cmdline[1024] = {0};
     static int initialized = 0;
     ssize_t len;
@@ -1036,8 +1198,13 @@ const char* ucs_get_process_cmdline()
         initialized = 1;
     }
     return cmdline;
+#else
+    // FIXME: I'm not sure how to get cmdline on macOS
+    return NULL;
+#endif
 }
 
+#ifndef __APPLE__
 static ucs_status_t
 ucs_sys_enum_pfn_internal(int pagemap_fd, unsigned start_page, uint64_t *data,
                           uintptr_t address, unsigned page_count,
@@ -1068,10 +1235,12 @@ ucs_sys_enum_pfn_internal(int pagemap_fd, unsigned start_page, uint64_t *data,
 
     return UCS_OK;
 }
+#endif
 
 ucs_status_t ucs_sys_enum_pfn(uintptr_t address, unsigned page_count,
                               ucs_sys_enum_pfn_cb_t cb, void *ctx)
 {
+#ifndef __APPLE__
     /* by default use 1K buffer on stack */
     const int UCS_SYS_ENUM_PFN_ELEM_CNT = ucs_min(128, UCS_ALLOCA_MAX_SIZE /
                                                   sizeof(uint64_t));
@@ -1105,6 +1274,9 @@ ucs_status_t ucs_sys_enum_pfn(uintptr_t address, unsigned page_count,
     }
 
     return status;
+#else
+    return UCS_ERR_UNSUPPORTED;
+#endif
 }
 
 static void ucs_sys_get_pfn_cb(unsigned page_number, unsigned long pfn,
@@ -1147,6 +1319,9 @@ pid_t ucs_get_tid(void)
 
     thr_self(&id);
     return (id);
+#elif defined(__APPLE__)
+    // FIXME thread_tid returns uint64_t
+    return thread_tid(current_thread(void));
 #else
 #error "Port me"
 #endif
@@ -1154,6 +1329,7 @@ pid_t ucs_get_tid(void)
 
 int ucs_tgkill(int tgid, int tid, int sig)
 {
+#ifndef __APPLE__
 #ifdef SYS_tgkill
     return syscall(SYS_tgkill, tgid, tid, sig);
 #elif defined(HAVE_SYS_THR_H)
@@ -1161,10 +1337,14 @@ int ucs_tgkill(int tgid, int tid, int sig)
 #else
 #error "Port me"
 #endif
+#else
+    return 0; // FIXME
+#endif
 }
 
 double ucs_get_cpuinfo_clock_freq(const char *header, double scale)
 {
+#ifndef __APPLE__
     double value = 0.0;
     double m;
     int rc;
@@ -1172,7 +1352,13 @@ double ucs_get_cpuinfo_clock_freq(const char *header, double scale)
     char buf[256];
     char fmt[256];
     int warn;
+#else
+    int64_t cpu_freq;
+    size_t cpu_freq_size = sizeof(cpu_freq);
+    int ret;
+#endif
 
+#ifndef __APPLE__
     f = fopen("/proc/cpuinfo","r");
     if (!f) {
         return 0.0;
@@ -1205,18 +1391,40 @@ double ucs_get_cpuinfo_clock_freq(const char *header, double scale)
     }
 
     return value * scale;
+#else
+    if(scale != 1e6){
+        ucs_error("Current implentation expect 1e6 scale"); // FIXME
+    }
+    if(strcmp("cpu MHz",header) != 0){
+        ucs_error("Current implentation only support 'cpu MHz' header only"); // FIXME
+    }
+
+    ret = ucs_sysctlbyname("hw.cpufrequency", &cpu_freq, &cpu_freq_size);
+    if (ret != UCS_OK){
+        ucs_error("Can't get cpu.frequence"); // FIXME
+    }
+    return cpu_freq;
+#endif
 }
 
 void *ucs_sys_realloc(void *old_ptr, size_t old_length, size_t new_length)
 {
     void *ptr;
+#ifdef __APPLE__
+    int ret;
+#endif
 
     new_length = ucs_align_up_pow2(new_length, ucs_get_page_size());
     if (old_ptr == NULL) {
+#ifdef __APPLE__
+        ptr = mmap(NULL,new_length, PROT_READ|PROT_WRITE,
+                   MAP_PRIVATE|MAP_ANONYMOUS, -1, 0ul);
+#else
         /* Note: Must pass the 0 offset as "long", otherwise it will be
          * partially undefined when converted to syscall arguments */
         ptr = (void*)syscall(__NR_mmap, NULL, new_length, PROT_READ|PROT_WRITE,
                              MAP_PRIVATE|MAP_ANONYMOUS, -1, 0ul);
+#endif
         if (ptr == MAP_FAILED) {
             ucs_log_fatal_error("mmap(NULL, %zu, READ|WRITE, PRIVATE|ANON) failed: %m",
                                 new_length);
@@ -1224,8 +1432,18 @@ void *ucs_sys_realloc(void *old_ptr, size_t old_length, size_t new_length)
         }
     } else {
         old_length = ucs_align_up_pow2(old_length, ucs_get_page_size());
+#ifdef __APPLE__
+        /* macOS doesn't support mrepmap */
+        ret = munmap(old_ptr, old_length);
+        if (ret) {
+            ucs_log_fatal_error("munmap(%p, %zu) failed: %m", old_ptr, old_length);
+        }
+        ptr = mmap(NULL,new_length, PROT_READ|PROT_WRITE,
+                   MAP_PRIVATE|MAP_ANONYMOUS, -1, 0ul);
+#else
         ptr = (void*)syscall(__NR_mremap, old_ptr, old_length, new_length,
                              MREMAP_MAYMOVE);
+#endif
         if (ptr == MAP_FAILED) {
             ucs_log_fatal_error("mremap(%p, %zu, %zu, MAYMOVE) failed: %m",
                                 old_ptr, old_length, new_length);
@@ -1242,7 +1460,11 @@ void ucs_sys_free(void *ptr, size_t length)
 
     if (ptr != NULL) {
         length = ucs_align_up_pow2(length, ucs_get_page_size());
+#ifdef __APPLE__
+        ret = munmap(ptr,length);
+#else
         ret = syscall(__NR_munmap, ptr, length);
+#endif
         if (ret) {
             ucs_log_fatal_error("munmap(%p, %zu) failed: %m", ptr, length);
         }
@@ -1251,6 +1473,7 @@ void ucs_sys_free(void *ptr, size_t length)
 
 char* ucs_make_affinity_str(const ucs_sys_cpuset_t *cpuset, char *str, size_t len)
 {
+#ifndef __APPLE__
     int i = 0, prev = -1;
     char *p = str;
 
@@ -1281,6 +1504,9 @@ char* ucs_make_affinity_str(const ucs_sys_cpuset_t *cpuset, char *str, size_t le
 
     *(--p) = 0;
     return str;
+#else
+    return NULL; // FIXME
+#endif
 }
 
 int ucs_sys_setaffinity(ucs_sys_cpuset_t *cpuset)
@@ -1292,6 +1518,8 @@ int ucs_sys_setaffinity(ucs_sys_cpuset_t *cpuset)
 #elif defined(HAVE_CPUSET_SETAFFINITY)
     ret = cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, getpid(),
                              sizeof(*cpuset), cpuset);
+#elif defined(__APPLE__)
+    ret = 0; // FIXME
 #else
 #error "Port me"
 #endif
@@ -1307,6 +1535,8 @@ int ucs_sys_getaffinity(ucs_sys_cpuset_t *cpuset)
 #elif defined(HAVE_CPUSET_GETAFFINITY)
     ret = cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, getpid(),
                              sizeof(*cpuset), cpuset);
+#elif defined(__APPLE__)
+    ret = 0; // FIXME
 #else
 #error "Port me"
 #endif
@@ -1315,6 +1545,7 @@ int ucs_sys_getaffinity(ucs_sys_cpuset_t *cpuset)
 
 void ucs_sys_cpuset_copy(ucs_cpu_set_t *dst, const ucs_sys_cpuset_t *src)
 {
+#ifndef __APPLE__
     int c;
 
     UCS_CPU_ZERO(dst);
@@ -1323,6 +1554,7 @@ void ucs_sys_cpuset_copy(ucs_cpu_set_t *dst, const ucs_sys_cpuset_t *src)
             UCS_CPU_SET(c, dst);
         }
     }
+#endif
 }
 
 ucs_sys_ns_t ucs_sys_get_ns(ucs_sys_namespace_type_t ns)
