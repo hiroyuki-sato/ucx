@@ -59,6 +59,11 @@ typedef cpu_set_t ucs_sys_cpuset_t;
 #elif defined(__FreeBSD__) || defined(HAVE_CPUSET_T)
 #include <sys/cpuset.h>
 typedef cpuset_t ucs_sys_cpuset_t;
+#elif defined(__APPLE__)
+typedef struct _cpuset_t {
+    int64_t cpu_bits[10]; // FIXME
+} cpuset_t;
+typedef cpuset_t ucs_sys_cpuset_t;
 #else
 #error "Port me"
 #endif
@@ -421,7 +426,7 @@ const char* ucs_get_process_cmdline();
  * Get current thread (LWP) id.
  */
 pid_t ucs_get_tid(void);
-
+// uint64_t ucs_get_tid(void);
 
 /**
  * Send signal to a thread.
