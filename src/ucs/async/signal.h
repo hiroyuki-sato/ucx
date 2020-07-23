@@ -19,6 +19,12 @@
 typedef struct ucs_async_signal_context {
 } ucs_async_signal_context_t;
 
+#define UCS_ASYNC_SIGNAL_BLOCK(_async)
+
+#define UCS_ASYNC_SIGNAL_UNBLOCK(_async)
+
+#define UCS_ASYNC_SIGNAL_IS_RECURSIVELY_BLOCKED(_async)
+
 #else
 
 typedef struct ucs_async_signal_context {
