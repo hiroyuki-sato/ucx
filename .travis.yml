@@ -3,26 +3,34 @@ language: cpp
 compiler: clang
 
 before_install:
-    - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update          ; fi
+    #- if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update          ; fi
 
 script:
     - echo "TRAVIS_OS_NAME=$TRAVIS_OS_NAME"
     - env
     - git clone https://github.com/ARM-software/progress64 && cd progress64 && make all && cd ..
+    # 
     # merge modifications
-    - git merge --no-ff --no-edit macos/config-m4-sysdep
-    - git merge --no-ff --no-edit macos/use-progress64
-    - git merge --no-ff --no-edit macos/host_name_max
-    - git merge --no-ff --no-edit macos/ucs-force-cast-rcache
-    - git merge --no-ff --no-edit macos/porting-link_h
-    - git merge --no-ff --no-edit macos/uct-tcp_syncnt-get-link-speed
-    - git merge --no-ff --no-edit macos/ucs-sys-use-sysctlbyname
-    - git merge --no-ff --no-edit macos/disable-signal-mode-temporary
-    - git merge --no-ff --no-edit macos/ucs-tv_usec-cast-to-long-int
-    - git merge --no-ff --no-edit macos/ucs-use-malloc_size
-    - git merge --no-ff --no-edit macos/ucm-use-malloc_size
-    - git merge --no-ff --no-edit macos/ucs-use-so_nosigpipe
-    - git merge --no-ff --no-edit macos/ucm-replace-mremap
+    - git remote add hiroyuki-sato https://github.com/hiroyuki-sato/ucx
+    - git fetch hiroyuki-sato
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/config-m4-sysdep
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/use-progress64
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/host_name_max
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucs-force-cast-rcache
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/porting-link_h
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/uct-tcp_syncnt-get-link-speed
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucs-sys-use-sysctlbyname
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/disable-signal-mode-temporary
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucs-tv_usec-cast-to-long-int
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucs-use-malloc_size
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucm-use-malloc_size
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucs-use-so_nosigpipe
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucm-replace-mremap
+    # need more fix
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucp-use-kqueue-instead-of-eventfd
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucm-bypass-reloc
+
+
 
     - ./autogen.sh && ./configure --disable-numa --with-progress64=$PWD/progress64
     - make -k
