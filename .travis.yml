@@ -9,5 +9,20 @@ script:
     - echo "TRAVIS_OS_NAME=$TRAVIS_OS_NAME"
     - env
     - git clone https://github.com/ARM-software/progress64 && cd progress64 && make all && cd ..
+    # merge modifications
+    - git merge --no-ff --no-edit macos/config-m4-sysdep
+    - git merge --no-ff --no-edit macos/use-progress64
+    - git merge --no-ff --no-edit macos/host_name_max
+    - git merge --no-ff --no-edit macos/ucs-force-cast-rcache
+    - git merge --no-ff --no-edit macos/porting-link_h
+    - git merge --no-ff --no-edit macos/uct-tcp_syncnt-get-link-speed
+    - git merge --no-ff --no-edit macos/ucs-sys-use-sysctlbyname
+    - git merge --no-ff --no-edit macos/disable-signal-mode-temporary
+    - git merge --no-ff --no-edit macos/ucs-tv_usec-cast-to-long-int
+    - git merge --no-ff --no-edit macos/ucs-use-malloc_size
+    - git merge --no-ff --no-edit macos/ucm-use-malloc_size
+    - git merge --no-ff --no-edit macos/ucs-use-so_nosigpipe
+    - git merge --no-ff --no-edit macos/ucm-replace-mremap
+
     - ./autogen.sh && ./configure --disable-numa --with-progress64=$PWD/progress64
-    - make
+    - make -k
