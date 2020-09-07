@@ -7,3 +7,7 @@ before_install:
 
 script:
     - echo "TRAVIS_OS_NAME=$TRAVIS_OS_NAME"
+    - env
+    - git clone https://github.com/ARM-software/progress64 && cd progress64 && mkae all && cd ..
+    - ./autogen.sh && ./configure --disable-numa --with-progress64=$PWD/progress64
+    - make
