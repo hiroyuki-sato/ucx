@@ -3,7 +3,7 @@ language: cpp
 compiler: clang
 
 before_install:
-    #- if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update          ; fi
+    - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update          ; fi
 
 script:
     - echo "TRAVIS_OS_NAME=$TRAVIS_OS_NAME"
