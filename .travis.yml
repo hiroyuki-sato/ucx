@@ -13,23 +13,24 @@ script:
     # merge modifications
     - git remote add hiroyuki-sato https://github.com/hiroyuki-sato/ucx
     - git fetch hiroyuki-sato
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/config-m4-sysdep
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/use-progress64
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/host_name_max
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucs-force-cast-rcache
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/porting-link_h
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/uct-tcp_syncnt-get-link-speed
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucs-sys-use-sysctlbyname
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/disable-signal-mode-temporary
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucs-tv_usec-cast-to-long-int
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucs-use-malloc_size
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucm-use-malloc_size
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucs-use-so_nosigpipe
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucm-replace-mremap
-    # need more fix
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucp-use-kqueue-instead-of-eventfd
-    - git merge --no-ff --no-edit hiroyuki-sato/macos/ucm-bypass-reloc
 
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/001_config-m4-sysdep
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/002_use-progress64
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/003_host_name_max
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/004_ucs-force-cast-rcache
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/005_porting-link_h
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/006_uct-tcp_syncnt-get-link-speed
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/007_ucs-sys-use-sysctlbyname
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/008_disable-signal-mode-temporary
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/009_ucs-tv_usec-cast-to-long-int
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/010_ucs-use-malloc_size
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/011_ucm-use-malloc_size
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/012_ucs-use-so_nosigpipe
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/013_ucm-replace-mremap
+
+    # need more fix
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/014_ucp-use-kqueue-instead-of-eventfd
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/015_ucm-bypass-reloc
 
 
     - ./autogen.sh && ./configure --disable-numa --with-progress64=$PWD/progress64
