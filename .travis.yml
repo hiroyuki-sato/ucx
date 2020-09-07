@@ -31,6 +31,7 @@ script:
     # need more fix
     - git merge --no-ff --no-edit hiroyuki-sato/macos/014_ucp-use-kqueue-instead-of-eventfd
     - git merge --no-ff --no-edit hiroyuki-sato/macos/015_ucm-bypass-reloc
+    - git merge --no-ff --no-edit hiroyuki-sato/macos/016_ucs-kqueue-event_set
 
 
     - ./autogen.sh && ./configure --disable-numa --with-progress64=$PWD/progress64
