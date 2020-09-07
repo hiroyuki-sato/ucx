@@ -10,10 +10,6 @@ script:
     - env
     - git clone https://github.com/ARM-software/progress64 && cd progress64 && make all && cd ..
     # 
-    - git remote add hiroyuki-sato https://github.com/hiroyuki-sato/ucx
-    - git fetch hiroyuki-sato
-    - git checkout -b travis/setting hiroyuki-sato/travis/setting
-
     - ./merge_macos_branches
 
     - ./autogen.sh && ./configure --disable-numa --with-progress64=$PWD/progress64
