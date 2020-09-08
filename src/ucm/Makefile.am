@@ -10,9 +10,9 @@ SUBDIRS = . cuda rocm
 lib_LTLIBRARIES    = libucm.la
 libucm_ladir       = $(includedir)/ucm
 libucm_la_LDFLAGS  = $(UCM_MODULE_LDFLAGS) \
-                     -ldl -version-info $(SOVERSION)
-libucm_la_CPPFLAGS = $(BASE_CPPFLAGS) -DUCM_MALLOC_PREFIX=ucm_dl
-libucm_la_CFLAGS   = $(BASE_CFLAGS) $(CFLAGS_NO_DEPRECATED)
+                     -ldl -version-info $(SOVERSION) $(PROGRESS64_LIBS) $(PROGRESS64_LDFLAGS)
+libucm_la_CPPFLAGS = $(BASE_CPPFLAGS) -DUCM_MALLOC_PREFIX=ucm_dl $(PROGRESS64_CPPFLAGS)
+libucm_la_CFLAGS   = $(BASE_CFLAGS) $(CFLAGS_NO_DEPRECATED) 
 
 nobase_dist_libucm_la_HEADERS = \
 	api/ucm.h
