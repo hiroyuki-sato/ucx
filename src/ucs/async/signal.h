@@ -17,6 +17,7 @@
 
 /* macOS doesn't support signal mode yet */
 typedef struct ucs_async_signal_context {
+    char dummy[1];
 } ucs_async_signal_context_t;
 
 #define UCS_ASYNC_SIGNAL_BLOCK(_async)
