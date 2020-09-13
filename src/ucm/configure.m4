@@ -20,6 +20,21 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([])],[
 ])
 
 #
+# darwin
+# TODO: Add linker option
+#
+AS_IF([test "x$ucm_ldflags_happy" = "xno"],[
+    UCM_MODULE_LDFLAGS_TEST=""
+    LDFLAGS="$SAVE_LDFLAGS $UCM_MODULE_LDFLAGS_TEST"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([])],[
+        AC_SUBST([UCM_MODULE_LDFLAGS],[$UCM_MODULE_LDFLAGS_TEST])
+        ucm_ldflags_happy=yes
+    ],[
+        ucm_ldflags_happy=no
+    ])
+],[])
+
+#
 # ERROR
 #
 AS_IF([test "x$ucm_ldflags_happy" = "xno"],[
