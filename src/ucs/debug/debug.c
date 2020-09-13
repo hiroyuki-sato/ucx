@@ -173,6 +173,8 @@ const char *ucs_signal_names[] = {
 #elif defined __FreeBSD__
     [SIGRTMIN] = NULL
 #elif defined __APPLE__
+    /* SIGEMT use no.7, this part nessesarry for setting after no.8 */
+    UCS_SYS_SIGNAME(EMT),
     [SIGUSR2 + 1] = NULL
 #else
 #error "Port me"
