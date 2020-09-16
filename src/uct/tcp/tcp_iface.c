@@ -17,6 +17,12 @@
 #include <sys/poll.h>
 #include <netinet/tcp.h>
 #include <dirent.h>
+#ifdef __APPLE__
+#include <net/if_types.h>
+#include <sys/socket.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#endif
 
 
 extern ucs_class_t UCS_CLASS_DECL_NAME(uct_tcp_iface_t);
@@ -681,12 +687,47 @@ ucs_status_t uct_tcp_query_devices(uct_md_h md,
                                    unsigned *num_devices_p)
 {
     uct_tl_device_resource_t *devices, *tmp;
-    static const char *netdev_dir = "/sys/class/net";
-    struct dirent *entry;
     unsigned num_devices;
     ucs_status_t status;
+#ifdef __APPLE__
+    struct ifaddrs *ifap, *ifaptr;
+#else
+    static const char *netdev_dir = "/sys/class/net";
+    struct dirent *entry;
     DIR *dir;
+#endif
 
+    devices     = NULL;
+    num_devices = 0;
+#ifdef __APPLE__
+    if (getifaddrs(&ifap) == 0) {
+        for(ifaptr = ifap; ifaptr != NULL; ifaptr = (ifaptr)->ifa_next) {
+            sa_family_t family = ((ifaptr)->ifa_addr)->sa_family;
+            /* TODO: IPv6 */
+            if ((family == AF_INET ) &&
+                (ifaptr->ifa_flags & IFF_RUNNING) &&
+                !(ifaptr->ifa_flags & IFF_LOOPBACK)) {
+
+                tmp = ucs_realloc(devices, sizeof(*devices) * (num_devices + 1),
+                                  "tcp devices");
+
+                if (tmp == NULL) {
+                    ucs_free(devices);
+                    status = UCS_ERR_NO_MEMORY;
+                    goto out;
+                }
+                devices = tmp;
+
+                ucs_snprintf_zero(devices[num_devices].name,
+                                  sizeof(devices[num_devices].name),
+                                  "%s", ifaptr->ifa_name);
+                devices[num_devices].type = UCT_DEVICE_TYPE_NET;
+                ++num_devices;
+            }
+        }
+        freeifaddrs(ifap);
+    }
+#else
     dir = opendir(netdev_dir);
     if (dir == NULL) {
         ucs_error("opendir(%s) failed: %m", netdev_dir);
@@ -694,8 +735,6 @@ ucs_status_t uct_tcp_query_devices(uct_md_h md,
         goto out;
     }
 
-    devices     = NULL;
-    num_devices = 0;
     for (;;) {
         errno = 0;
         entry = readdir(dir);
@@ -738,13 +777,16 @@ ucs_status_t uct_tcp_query_devices(uct_md_h md,
         devices[num_devices].type = UCT_DEVICE_TYPE_NET;
         ++num_devices;
     }
+#endif
 
     *num_devices_p = num_devices;
     *devices_p     = devices;
     status         = UCS_OK;
 
+#ifndef __APPLE__
 out_closedir:
     closedir(dir);
+#endif
 out:
     return status;
 }
