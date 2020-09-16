@@ -41,6 +41,7 @@
 #include <sys/socket.h>
 #include <net/if_dl.h>
 #include <ifaddrs.h>
+#include <net/if_types.h>
 #else /* __APPLE__ */
 #if HAVE_SYS_CAPABILITY_H
 #  include <sys/capability.h>
@@ -1585,6 +1586,7 @@ ucs_status_t ucs_sys_get_boot_id(uint64_t *high, uint64_t *low)
 
     static ucs_init_once_t init_once = UCS_INIT_ONCE_INITIALIZER;
     static ucs_status_t status       = UCS_ERR_IO_ERROR;
+#ifndef __APPLE__
     char bootid_str[256];
     ssize_t size;
     uint32_t v1;
@@ -1594,8 +1596,36 @@ ucs_status_t ucs_sys_get_boot_id(uint64_t *high, uint64_t *low)
     uint8_t v5[6];
     int res;
     int i;
+#endif
 
     UCS_INIT_ONCE(&init_once) {
+#ifdef __APPLE__
+        struct ifaddrs *ifap, *ifaptr;
+        struct sockaddr_dl *dl;
+        unsigned char *addr;
+
+        if (getifaddrs(&ifap) == 0) {
+            for(ifaptr = ifap; ifaptr != NULL; ifaptr = (ifaptr)->ifa_next) {
+                dl = (struct sockaddr_dl*)ifaptr->ifa_addr;
+                if (dl->sdl_family == AF_LINK &&
+                    dl->sdl_type == IFT_ETHER &&
+                    !strncmp(dl->sdl_data, "en0" ,3)) {
+
+                    addr = (unsigned char *)LLADDR(dl);
+                    boot_id.high = ((uint64_t)addr[5] << 16) |
+                                   ((uint64_t)addr[4] << 24) |
+                                   ((uint64_t)addr[3] << 32) |
+                                   ((uint64_t)addr[2] << 40) |
+                                   ((uint64_t)addr[1] << 48) |
+                                   ((uint64_t)addr[0] << 56);
+                    boot_id.low = 0;
+                    status = UCS_OK;
+                    break;
+                }
+            }
+        }
+        freeifaddrs(ifap);
+#else
         size = ucs_read_file_str(bootid_str, sizeof(bootid_str), 1,
                                  "%s", UCS_PROCESS_BOOTID_FILE);
         if (size <= 0) {
@@ -1615,6 +1645,7 @@ ucs_status_t ucs_sys_get_boot_id(uint64_t *high, uint64_t *low)
                 boot_id.high |= (uint64_t)v5[i] << (16 + (i * 8));
             }
         }
+#endif
     }
 
     if (status == UCS_OK) {
