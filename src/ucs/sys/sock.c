@@ -426,12 +426,21 @@ err:
 int ucs_socket_max_conn()
 {
     static long somaxconn_val = 0;
+#ifdef __APPLE__
+    size_t somaxconn_val_len = sizeof(somaxconn_val);
 
+    if (somaxconn_val ||
+        (ucs_sysctlbyname("kern.ipc.somaxconn",&somaxconn_val,
+                          &somaxconn_val_len) == UCS_OK)) {
+        ucs_assert(somaxconn_val <= INT_MAX);
+        return somaxconn_val;
+#else
     if (somaxconn_val ||
         (ucs_read_file_number(&somaxconn_val, 1,
                               UCS_SOCKET_MAX_CONN_PATH) == UCS_OK)) {
         ucs_assert(somaxconn_val <= INT_MAX);
         return somaxconn_val;
+#endif
     } else {
         ucs_warn("unable to read somaxconn value from %s file",
                  UCS_SOCKET_MAX_CONN_PATH);
