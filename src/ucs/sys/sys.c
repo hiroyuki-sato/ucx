@@ -285,7 +285,7 @@ uint64_t ucs_machine_guid()
 }
 
 #ifdef __APPLE__
-static int ucs_sysctlbyname(const char *name, void *buf, size_t *buflen)
+ucs_status_t ucs_sysctlbyname(const char *name, void *buf, size_t *buflen)
 {
     int ret;
 

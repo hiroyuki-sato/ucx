@@ -614,6 +614,19 @@ ucs_status_t ucs_sys_enum_threads(ucs_sys_enum_threads_cb_t cb, void *ctx);
 ucs_status_t ucs_sys_get_file_time(const char *name, ucs_sys_file_time_t type,
                                    ucs_time_t *time);
 
+#ifdef __APPLE__
+/**
+ * Get system information
+ *
+ * @param [in]  name       Parameter name
+ * @param [in]  buf        Parameter result buffer
+ * @param [in]  buflen     Parameter buffer length
+ *
+ * @return UCS_OK succssful completion.
+ *
+ */
+ucs_status_t ucs_sysctlbyname(const char *name, void *buf, size_t *buflen);
+#endif
 END_C_DECLS
 
 #endif
