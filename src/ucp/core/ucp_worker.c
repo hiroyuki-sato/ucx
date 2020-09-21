@@ -28,9 +28,18 @@
 #include <ucs/sys/string.h>
 #include <ucs/arch/atomic.h>
 #include <sys/poll.h>
+#ifdef __APPLE__
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
+#else
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
+#endif
 
+#ifdef __APPLE__
+#define KQ_NOTIFY_ID 65535 /* TODO */
+#endif
 
 #define UCP_WORKER_HEADROOM_SIZE \
     (sizeof(ucp_recv_desc_t) + UCP_WORKER_HEADROOM_PRIV_SIZE)
@@ -253,6 +262,10 @@ static ucs_status_t ucp_worker_wakeup_init(ucp_worker_h worker,
     ucp_context_h context = worker->context;
     unsigned events;
     ucs_status_t status;
+#ifdef __APPLE__
+    struct kevent kev;
+    int ret;
+#endif
 
     if (!(context->config.features & UCP_FEATURE_WAKEUP)) {
         worker->event_fd   = -1;
@@ -290,12 +303,30 @@ static ucs_status_t ucp_worker_wakeup_init(ucp_worker_h worker,
         worker->flags |= UCP_WORKER_FLAG_EDGE_TRIGGERED;
     }
 
+
+#ifdef __APPLE__
+    worker->eventfd = kqueue();
+    if(worker->eventfd == -1) {
+        ucs_error("Failed to create kqueue fd: %m");
+        status = UCS_ERR_IO_ERROR;
+        goto err_cleanup_event_set;
+    }
+
+    EV_SET(&kev, KQ_NOTIFY_ID, EVFILT_USER, EV_ADD, 0, 0, NULL);
+    ret = kevent(worker->eventfd, &kev, 1, NULL, 0, NULL);
+    if (ret < 0) {
+        ucs_error("Failed to set kqueue event: %m");
+        status = UCS_ERR_IO_ERROR;
+        goto err_cleanup_event_set;
+    }
+#else
     worker->eventfd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if (worker->eventfd == -1) {
         ucs_error("Failed to create event fd: %m");
         status = UCS_ERR_IO_ERROR;
         goto err_cleanup_event_set;
     }
+#endif
 
     ucp_worker_wakeup_ctl_fd(worker, UCP_WORKER_EPFD_OP_ADD, worker->eventfd);
 
@@ -392,12 +423,34 @@ static void ucp_worker_iface_disarm(ucp_worker_iface_t *wiface)
 
 static ucs_status_t ucp_worker_wakeup_signal_fd(ucp_worker_h worker)
 {
+#ifdef __APPLE__
+    struct kevent kev;
+#else
     uint64_t dummy = 1;
+#endif
     int ret;
 
     ucs_trace_func("worker=%p fd=%d", worker, worker->eventfd);
 
+#ifdef __APPLE__
+   EV_SET(&kev, KQ_NOTIFY_ID, EVFILT_USER, 0, NOTE_TRIGGER, 0, NULL);
+#endif
+
     do {
+#ifdef __APPLE__
+        ret = kevent(worker->eventfd, &kev, 1, NULL, 0, NULL);
+        if ( ret == 0 ){
+            return UCS_OK;
+        } else {
+            // TODO error handling.
+            if (errno == EAGAIN) {
+                return UCS_OK;
+            } else if (errno != EINTR) {
+                ucs_error("Signaling wakeup failed: %m");
+                return UCS_ERR_IO_ERROR;
+            }
+        }
+#else
         ret = write(worker->eventfd, &dummy, sizeof(dummy));
         if (ret == sizeof(dummy)) {
             return UCS_OK;
@@ -411,6 +464,7 @@ static ucs_status_t ucp_worker_wakeup_signal_fd(ucp_worker_h worker)
         } else {
             ucs_assert(ret == 0);
         }
+#endif
     } while (ret == 0);
 
     return UCS_OK;
@@ -2247,7 +2301,11 @@ ucs_status_t ucp_worker_arm(ucp_worker_h worker)
 {
     ucp_worker_iface_t *wiface;
     ucs_status_t status;
+#ifdef __APPLE__
+    struct kevent kev;
+#else
     uint64_t dummy;
+#endif
     int ret;
 
     ucs_trace_func("worker=%p", worker);
@@ -2259,6 +2317,14 @@ ucs_status_t ucp_worker_arm(ucp_worker_h worker)
      * Otherwise, continue to arm the transport interfaces.
      */
     do {
+#ifdef __APPLE__
+        /* TODO: implement this routine */
+        ret = kevent(worker->eventfd, NULL, 0, &kev, 1, NULL);
+        if( ret < 0 ){
+
+        } else {
+        }
+#else
         ret = read(worker->eventfd, &dummy, sizeof(dummy));
         if (ret == sizeof(dummy)) {
             status = UCS_ERR_BUSY;
@@ -2274,6 +2340,7 @@ ucs_status_t ucp_worker_arm(ucp_worker_h worker)
         } else {
             ucs_assert(ret == 0);
         }
+#endif
     } while (ret != 0);
 
     UCP_WORKER_THREAD_CS_ENTER_CONDITIONAL(worker);
