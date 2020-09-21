@@ -19,6 +19,9 @@
 #include <malloc.h>
 #endif
 #include <stdio.h>
+#ifdef __APPLE__
+#include <malloc/malloc.h>
+#endif
 
 
 #ifdef ENABLE_MEMTRACK
@@ -401,7 +404,11 @@ int ucs_posix_memalign_realloc(void **ptr, size_t boundary, size_t size,
     int ret;
 
     /* obtain previous size, to reduce the size for memcpy() below */
+#ifdef __APPLE__
+    old_size = malloc_size(*ptr);
+#else
     old_size = malloc_usable_size(*ptr);
+#endif
 
     /* first try to realloc() - the region may be extended (not guaranteed) */
     tmp = ucs_realloc(*ptr, size, name);
