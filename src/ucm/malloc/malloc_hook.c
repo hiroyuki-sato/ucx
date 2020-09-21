@@ -36,6 +36,9 @@
 
 
 #include <netdb.h>
+#ifdef __APPLE__
+#include <malloc/malloc.h>
+#endif
 
 
 /* Flags for install_state */
@@ -785,7 +788,11 @@ static void ucm_malloc_init_orig_funcs()
      * so patching the relocation tables would find their previous value by libucm
      */
     if (ucm_malloc_hook_state.usable_size == NULL) {
+#ifdef __APPLE__
+        ucm_malloc_hook_state.usable_size = (size_t (*)(void *))malloc_size;
+#else
         ucm_malloc_hook_state.usable_size = (size_t (*)(void *))malloc_usable_size;
+#endif
     }
     if ( ucm_malloc_hook_state.free == NULL) {
         ucm_malloc_hook_state.free = free;
