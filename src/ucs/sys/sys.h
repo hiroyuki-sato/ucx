@@ -63,12 +63,17 @@ typedef cpuset_t ucs_sys_cpuset_t;
 #elif defined(__APPLE__)
 typedef struct _cpuset_t {
     int64_t cpu_bits[10]; // FIXME
-} cpuset_t;
-typedef cpuset_t ucs_sys_cpuset_t;
+} cpu_set_t;
+typedef cpu_set_t ucs_sys_cpuset_t;
+#define sched_setaffinity(a, b, c) ((void)a, (void)b, (void)c, 0)
+#define sched_getaffinity(a, b, c) ((void)a, (void)b, (void)c, 0)
+#define CPU_SET(a, b) (void)a, (void)b
+#define CPU_SETSIZE (1)
+#define CPU_ISSET(a, b) (1)
+#define CPU_ZERO(a) (void)a
 #else
 #error "Port me"
 #endif
-
 
 BEGIN_C_DECLS
 
