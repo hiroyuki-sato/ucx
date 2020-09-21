@@ -11,10 +11,15 @@
 #endif
 
 #include <ucs/sys/string.h>
+#ifdef __APPLE__
+#include <ifaddrs.h>
+#include <net/if_dl.h>
+#else
 #include <linux/sockios.h>
 #include <linux/types.h>
 #include <linux/ethtool.h>
 #include <linux/if_ether.h>
+#endif
 #include <sys/ioctl.h>
 #include <net/if_arp.h>
 #include <net/if.h>
@@ -23,22 +28,74 @@
 
 typedef ssize_t (*uct_tcp_io_func_t)(int fd, void *data, size_t size, int flags);
 
+#ifdef __APPLE__
+#define SPEED_MBPS 1000000
+#define ETH_HLEN        14              /* Total octets in header.       */
+#define ETH_FCS_LEN     4               /* Octets in the FCS             */
+/* FIXME: change function name */
+static ucs_status_t link_speed(const char *if_name, struct if_data *data) {
+    struct ifaddrs *ifap, *ifaptr;
+    uint32_t speed;
+
+    if (getifaddrs(&ifap) == 0) {
+        for(ifaptr = ifap; ifaptr != NULL; ifaptr = (ifaptr)->ifa_next) {
+            if ((((ifaptr)->ifa_addr)->sa_family == AF_LINK) &&
+                !strncmp((ifaptr)->ifa_name, if_name ,strlen(if_name))) {
+                data = (struct if_data *)ifaptr->ifa_data;
+                speed = data->ifi_baudrate; /* bps */
+                break;
+            }
+        }
+        freeifaddrs(ifap);
+        return UCS_OK;
+    } else {
+        return UCS_ERR_IO_ERROR;
+    }
+}
+#endif
 
 ucs_status_t uct_tcp_netif_caps(const char *if_name, double *latency_p,
                                 double *bandwidth_p)
 {
-    struct ethtool_cmd edata;
-    uint32_t speed_mbps;
+    size_t mtu;
     ucs_status_t status;
-    struct ifreq ifr;
+    uint32_t speed_mbps;
     size_t ll_headers;
+#ifdef __APPLE__
+    struct if_data data;
+    uint32_t speed_bps;
+#else
+    struct ethtool_cmd edata;
+    struct ifreq ifr;
     int speed_known;
     short ether_type;
-    size_t mtu;
+#endif
 
+#ifdef __APPLE__
+    status = link_speed(if_name, &data);
+    if (status == UCS_OK) {
+        mtu = data.ifi_baudrate;
+        speed_bps = data.ifi_baudrate;
+        speed_mbps = speed_bps / SPEED_MBPS;
+        ucs_debug("speed of %s is %d Mbps. MTU: %zu", if_name, speed_mbps, mtu);
+    } else {
+        mtu = 1500;
+        speed_mbps = 100;
+        ucs_debug("speed of %s is UNKNOWN, assuming %d Mbps", if_name, speed_mbps);
+    }
+
+    /* FIXME: macOS supports ETHERNET only. */
+    /* https://en.wikipedia.org/wiki/Ethernet_frame */
+    ll_headers = 7 + /* preamble */
+                 1 + /* start-of-frame */
+                 ETH_HLEN + /* src MAC + dst MAC + ethertype */
+                 ETH_FCS_LEN + /* CRC */
+                 12; /* inter-packet gap */
+#else
     memset(&ifr, 0, sizeof(ifr));
 
     speed_known  = 0;
+
     edata.cmd    = ETHTOOL_GSET;
     ifr.ifr_data = (void*)&edata;
     status = ucs_netif_ioctl(if_name, SIOCETHTOOL, &ifr);
@@ -97,6 +154,7 @@ ucs_status_t uct_tcp_netif_caps(const char *if_name, double *latency_p,
         ll_headers = 0;
         break;
     }
+#endif
 
     /* https://w3.siemens.com/mcms/industrial-communication/en/rugged-communication/Documents/AN8.pdf */
     *latency_p   = 576.0 / (speed_mbps * 1e6) + 5.2e-6;
