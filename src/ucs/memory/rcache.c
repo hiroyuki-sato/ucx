@@ -626,7 +626,8 @@ static ucs_status_t ucs_rcache_fill_pfn(ucs_rcache_region_t *region)
     }
 
     if (ucs_global_opts.rcache_check_pfn == 1) {
-        return ucs_sys_get_pfn(region->super.start, 1, &ucs_rcache_region_pfn(region));
+        return ucs_sys_get_pfn(region->super.start, 1,
+                               (unsigned long *)&ucs_rcache_region_pfn(region));
     }
 
     page_count = ucs_min(ucs_rcache_region_page_count(region),
