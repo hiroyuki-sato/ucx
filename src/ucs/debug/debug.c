@@ -21,7 +21,9 @@
 #include <sys/wait.h>
 #include <execinfo.h>
 #include <dlfcn.h>
+#ifndef __APPLE__
 #include <link.h>
+#endif
 #include <dirent.h>
 #ifdef HAVE_DETAILED_BACKTRACE
 #  include <bfd.h>
@@ -170,6 +172,10 @@ const char *ucs_signal_names[] = {
     [SIGSYS + 1] = NULL
 #elif defined __FreeBSD__
     [SIGRTMIN] = NULL
+#elif defined __APPLE__
+    /* SIGEMT use no.7, this part nessesarry for setting after no.8 */
+    UCS_SYS_SIGNAME(EMT),
+    [SIGUSR2 + 1] = NULL
 #else
 #error "Port me"
 #endif
@@ -925,7 +931,9 @@ static const char *ucs_signal_cause_common(int si_code)
 {
     switch (si_code) {
     case SI_USER      : return "kill(2) or raise(3)";
+#ifndef __APPLE__
     case SI_KERNEL    : return "Sent by the kernel";
+#endif
     case SI_QUEUE     : return "sigqueue(2)";
     case SI_TIMER     : return "POSIX timer expired";
     case SI_MESGQ     : return "POSIX message queue state changed";
@@ -1112,7 +1120,11 @@ static void* ucs_debug_get_orig_func(const char *symbol, void *replacement)
 #if HAVE___SIGHANDLER_T
 typedef __sighandler_t *sighandler_t;
 #else
+#ifdef __APPLE__
+typedef void (*sighandler_t)(int);
+#else
 #error "Port me"
+#endif
 #endif
 #endif
 sighandler_t signal(int signum, sighandler_t handler)

@@ -23,7 +23,9 @@
 #include <string.h>
 #include <limits.h>
 #include <dlfcn.h>
+#ifndef __APPLE__
 #include <link.h>
+#endif
 #include <libgen.h>
 
 
@@ -128,7 +130,9 @@ static void ucs_module_loader_init_paths()
 static void *ucs_module_dlsym_shallow(const char *module_path, void *dl,
                                       const char *symbol)
 {
+#ifndef __APPLE__
     struct link_map *lm_entry;
+#endif
     Dl_info dl_info;
     void *addr;
     int ret;
@@ -146,6 +150,8 @@ static void *ucs_module_dlsym_shallow(const char *module_path, void *dl,
     }
 
     (void)dlerror();
+// FIXME macOS dosn't have dlinfo function.
+#ifndef __APPLE__
     ret = dlinfo(dl, RTLD_DI_LINKMAP, &lm_entry);
     if (ret) {
         ucs_module_debug("dlinfo(%p) [%s] failed: %s", dl, module_path, dlerror());
@@ -162,6 +168,7 @@ static void *ucs_module_dlsym_shallow(const char *module_path, void *dl,
                          lm_entry->l_addr);
         return NULL;
     }
+#endif
 
     return addr;
 }
