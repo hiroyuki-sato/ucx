@@ -293,3 +293,10 @@ AC_CHECK_HEADERS([net/ethernet.h], [], [],
 AC_CHECK_HEADERS([netinet/ip.h], [], [],
 	[#include <sys/types.h>
 	 #include <netinet/in.h>])
+
+#
+# HOST_NAME_MAX
+#
+AC_CHECK_DECLS([HOST_NAME_MAX], [],
+        [AC_DEFINE([HOST_NAME_MAX], [64],[define HOST_NAME_MAX])],
+        [#include <limits.h>])
