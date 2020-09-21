@@ -507,7 +507,21 @@ static inline ucs_status_t
 ucs_socket_do_io_nb(int fd, void *data, size_t *length_p,
                     ucs_socket_io_func_t io_func, const char *name)
 {
-    ssize_t ret = io_func(fd, data, *length_p, MSG_NOSIGNAL);
+    size_t flag = 0;
+    size_t ret;
+#ifdef __APPLE__
+    int on = 1;
+    int status;
+
+    status = setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
+    if(status != 0){
+        ucs_error("setsockopt failed");
+        return UCS_ERR_IO_ERROR;
+    }
+#else
+    flag = MSG_NOSIGNAL;
+#endif
+    ret = io_func(fd, data, *length_p, flag);
     return ucs_socket_handle_io(fd, data, *length_p, length_p, 0,
                                 ret, errno, name);
 }
@@ -534,13 +548,29 @@ static inline ucs_status_t
 ucs_socket_do_iov_nb(int fd, struct iovec *iov, size_t iov_cnt, size_t *length_p,
                      ucs_socket_iov_func_t iov_func, const char *name)
 {
+    int flag = 0;
+#ifdef __APPLE__
+    int on = 1;
+    int status;
+
+#else
+    flag = MSG_NOSIGNAL;
+#endif
     struct msghdr msg = {
         .msg_iov    = iov,
         .msg_iovlen = iov_cnt
     };
     ssize_t ret;
 
-    ret = iov_func(fd, &msg, MSG_NOSIGNAL);
+#ifdef __APPLE__
+    status = setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
+    if(status != 0){
+        ucs_error("setsockopt failed");
+        return UCS_ERR_IO_ERROR;
+    }
+#endif
+
+    ret = iov_func(fd, &msg, flag);
     return ucs_socket_handle_io(fd, iov, iov_cnt, length_p, 1, ret, errno, name);
 }
 
