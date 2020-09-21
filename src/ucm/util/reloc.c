@@ -23,6 +23,7 @@
 #include <ucs/sys/string.h>
 #include <ucs/sys/sys.h>
 
+#ifndef __APPLE__
 #include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -711,13 +712,21 @@ static ucs_status_t ucm_reloc_install_dl_hooks()
     installed = 1;
     return UCS_OK;
 }
+#endif
 
 ucs_status_t ucm_reloc_modify(ucm_reloc_patch_t *patch)
 {
+#ifndef __APPLE__
     ucs_status_t status;
     Dl_info dl_info;
     int ret;
+#endif
 
+#if __APPLE__
+    ucm_error("macOS doesn't support reloc");
+    return UCS_ERR_UNSUPPORTED;
+
+#else
     ucm_reloc_get_orig_dl_funcs();
 
     /* Take default symbol value from the current library */
@@ -747,8 +756,11 @@ ucs_status_t ucm_reloc_modify(ucm_reloc_patch_t *patch)
 out_unlock:
     pthread_mutex_unlock(&ucm_reloc_patch_list_lock);
     return status;
+#endif
 }
 
 UCS_STATIC_INIT {
+#ifndef __APPLE__
     kh_init_inplace(ucm_dl_info_hash, &ucm_dl_info_hash);
+#endif
 }
