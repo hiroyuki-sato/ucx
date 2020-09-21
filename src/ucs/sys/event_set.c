@@ -19,7 +19,11 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>
+#else
+#include <sys/event.h>
+#endif
 
 
 enum {
@@ -31,25 +35,43 @@ struct ucs_sys_event_set {
     unsigned flags;
 };
 
+#ifdef HAVE_SYS_EPOLL_H
 const unsigned ucs_sys_event_set_max_wait_events =
     UCS_ALLOCA_MAX_SIZE / sizeof(struct epoll_event);
+#else
+const unsigned ucs_sys_event_set_max_wait_events =
+    UCS_ALLOCA_MAX_SIZE / sizeof(struct kevent);
+#endif
 
 
 static inline int ucs_event_set_map_to_raw_events(int events)
 {
     int raw_events = 0;
+    int ev_read,ev_write,ev_error,ev_et;
+
+#ifdef HAVE_SYS_EPOLL_H
+    ev_read  = EPOLLIN;
+    ev_write = EPOLLOUT;
+    ev_error = EPOLLERR;
+    ev_et    = EPOLLEET;
+#else
+    ev_read  = EVFILT_READ;
+    ev_write = EVFILT_WRITE;
+    ev_error = -1; /* TODO */
+    ev_et    = -1; /* TODO */
+#endif
 
     if (events & UCS_EVENT_SET_EVREAD) {
-         raw_events |= EPOLLIN;
+         raw_events |= ev_read;
     }
     if (events & UCS_EVENT_SET_EVWRITE) {
-         raw_events |= EPOLLOUT;
+         raw_events |= ev_error;
     }
     if (events & UCS_EVENT_SET_EVERR) {
-         raw_events |= EPOLLERR;
+         raw_events |= ev_error;
     }
     if (events & UCS_EVENT_SET_EDGE_TRIGGERED) {
-        raw_events  |= EPOLLET;
+        raw_events  |= ev_et;
     }
     return raw_events;
 }
@@ -58,6 +80,7 @@ static inline int ucs_event_set_map_to_events(int raw_events)
 {
     int events = 0;
 
+#ifdef HAVE_SYS_EPOLL_H
     if (raw_events & EPOLLIN) {
          events |= UCS_EVENT_SET_EVREAD;
     }
@@ -70,6 +93,22 @@ static inline int ucs_event_set_map_to_events(int raw_events)
     if (raw_events & EPOLLET) {
         events  |= UCS_EVENT_SET_EDGE_TRIGGERED;
     }
+#else
+    if (raw_events & EVFILT_READ) {
+         events |= UCS_EVENT_SET_EVREAD;
+    }
+    if (raw_events & EVFILT_WRITE) {
+         events |= UCS_EVENT_SET_EVWRITE;
+    }
+/* TODO
+    if (raw_events & EPOLLERR) {
+         events |= UCS_EVENT_SET_EVERR;
+    }
+    if (raw_events & EPOLLET) {
+        events  |= UCS_EVENT_SET_EVET;
+    }
+ */
+#endif
     return events;
 }
 
@@ -106,11 +145,19 @@ ucs_status_t ucs_event_set_create(ucs_sys_event_set_t **event_set_p)
     int event_fd;
 
     /* Create epoll set the thread will wait on */
+#ifdef HAVE_SYS_EPOLL_H
     event_fd = epoll_create(1);
     if (event_fd < 0) {
         ucs_error("epoll_create() failed: %m");
         return UCS_ERR_IO_ERROR;
     }
+#else
+    event_fd = kqueue();
+    if ( event_fd == -1 ) {
+        ucs_error("kqueue() failed: %m");
+        return UCS_ERR_IO_ERROR;
+    }
+#endif
 
     *event_set_p = ucs_event_set_alloc(event_fd, 0);
     if (*event_set_p == NULL) {
@@ -128,9 +175,15 @@ err_close_event_fd:
 ucs_status_t ucs_event_set_add(ucs_sys_event_set_t *event_set, int fd,
                                ucs_event_set_type_t events, void *callback_data)
 {
+#ifdef HAVE_SYS_EPOLL_H
     struct epoll_event raw_event;
+#else
+    struct kevent kq_event;
+    int kq_filter;
+#endif
     int ret;
 
+#ifdef HAVE_SYS_EPOLL_H
     memset(&raw_event, 0, sizeof(raw_event));
     raw_event.events   = ucs_event_set_map_to_raw_events(events);
     raw_event.data.ptr = callback_data;
@@ -141,16 +194,29 @@ ucs_status_t ucs_event_set_add(ucs_sys_event_set_t *event_set, int fd,
                   event_set->event_fd, fd);
         return UCS_ERR_IO_ERROR;
     }
+#else
+    memset(&kq_event, 0, sizeof(kq_event));
+    kq_filter = ucs_event_set_map_to_raw_events(events);
+    /* TODO */
+    EV_SET(&kq_event, fd, kq_filter, EV_ADD, 0, 0, NULL);
+    ret = kevent(event_set->event_fd, &kq_event, 1, NULL, 0, callback_data);
 
+#endif
     return UCS_OK;
 }
 
 ucs_status_t ucs_event_set_mod(ucs_sys_event_set_t *event_set, int fd,
                                ucs_event_set_type_t events, void *callback_data)
 {
+#ifdef HAVE_SYS_EPOLL_H
     struct epoll_event raw_event;
+#else
+    struct kevent kq_event;
+    int kq_filter;
+#endif
     int ret;
 
+#ifdef HAVE_SYS_EPOLL_H
     memset(&raw_event, 0, sizeof(raw_event));
     raw_event.events   = ucs_event_set_map_to_raw_events(events);
     raw_event.data.ptr = callback_data;
@@ -161,6 +227,15 @@ ucs_status_t ucs_event_set_mod(ucs_sys_event_set_t *event_set, int fd,
                   event_set->event_fd, fd);
         return UCS_ERR_IO_ERROR;
     }
+#else
+    memset(&kq_event, 0, sizeof(kq_event));
+    kq_filter = ucs_event_set_map_to_raw_events(events);
+    /* TODO */
+    EV_SET(&kq_event, fd, kq_filter, EV_ADD, 0, 0,
+           callback_data);
+    ret = kevent(event_set->event_fd, &kq_event, 1, NULL, 0, NULL);
+
+#endif
 
     return UCS_OK;
 }
@@ -168,13 +243,27 @@ ucs_status_t ucs_event_set_mod(ucs_sys_event_set_t *event_set, int fd,
 ucs_status_t ucs_event_set_del(ucs_sys_event_set_t *event_set, int fd)
 {
     int ret;
+#ifdef __APPLE__
+    struct kevent kq_event;
+#endif
 
+#ifdef HAVE_SYS_EPOLL_H
     ret = epoll_ctl(event_set->event_fd, EPOLL_CTL_DEL, fd, NULL);
     if (ret < 0) {
         ucs_error("epoll_ctl(event_fd=%d, DEL, fd=%d) failed: %m",
                   event_set->event_fd, fd);
         return UCS_ERR_IO_ERROR;
     }
+#else
+    /* TODO */
+    EV_SET(&kq_event, fd, 0, EV_DELETE, 0, 0, NULL);
+    ret = kevent(event_set->event_fd, &kq_event, 1, NULL, 0, NULL);
+    if (ret < 0) {
+        ucs_error("kevent(event_fd=%d, DEL, fd=%d) failed: %m",
+                  event_set->event_fd, fd);
+        return UCS_ERR_IO_ERROR;
+    }
+#endif
 
     return UCS_OK;
 }
@@ -184,7 +273,11 @@ ucs_status_t ucs_event_set_wait(ucs_sys_event_set_t *event_set,
                                 ucs_event_set_handler_t event_set_handler,
                                 void *arg)
 {
+#ifdef HAVE_SYS_EPOLL_H
     struct epoll_event *events;
+#else
+    struct kevent *events;
+#endif
     int nready, i, io_events;
 
     ucs_assert(event_set_handler != NULL);
@@ -193,6 +286,7 @@ ucs_status_t ucs_event_set_wait(ucs_sys_event_set_t *event_set,
 
     events = ucs_alloca(sizeof(*events) * *num_events);
 
+#ifdef HAVE_SYS_EPOLL_H
     nready = epoll_wait(event_set->event_fd, events, *num_events, timeout_ms);
     if (ucs_unlikely(nready < 0)) {
         *num_events = 0;
@@ -202,6 +296,17 @@ ucs_status_t ucs_event_set_wait(ucs_sys_event_set_t *event_set,
         ucs_error("epoll_wait() failed: %m");
         return UCS_ERR_IO_ERROR;
     }
+#else
+    nready = kevent(event_set->event_fd, NULL, 0, events, *num_events, NULL);
+    if (ucs_unlikely(nready < 0)) {
+        *num_events = 0;
+        if (errno == EINTR) {
+            return UCS_INPROGRESS;
+        }
+        ucs_error("kevent() failed: %m");
+        return UCS_ERR_IO_ERROR;
+    }
+#endif
 
     ucs_assert(nready <= *num_events);
     ucs_trace_poll("epoll_wait(event_fd=%d, num_events=%u, timeout=%d) "
@@ -209,8 +314,13 @@ ucs_status_t ucs_event_set_wait(ucs_sys_event_set_t *event_set,
                    event_set->event_fd, *num_events, timeout_ms, nready);
 
     for (i = 0; i < nready; i++) {
+#ifdef HAVE_SYS_EPOLL_H
         io_events = ucs_event_set_map_to_events(events[i].events);
         event_set_handler(events[i].data.ptr, io_events, arg);
+#else
+        io_events = ucs_event_set_map_to_events(events[i].flags);
+        event_set_handler(events[i].udata, io_events, arg);
+#endif
     }
 
     *num_events = nready;
