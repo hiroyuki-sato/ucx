@@ -12,8 +12,8 @@ AC_FUNC_ALLOCA
 # SystemV shared memory
 #
 #IPC_INFO
-AC_CHECK_LIB([rt], [shm_open],     [], AC_MSG_ERROR([librt not found]))
-AC_CHECK_LIB([rt], [timer_create], [], AC_MSG_ERROR([librt not found]))
+AC_CHECK_LIB([rt], [shm_open], [AC_DEFINE([HAVE_SHMEM_SYSV], [1],[Shared Memory SysV is available])],[])
+AC_CHECK_LIB([rt], [timer_create], [], AC_MSG_WARN([librt not found]))
 
 
 #
@@ -36,7 +36,7 @@ AC_CHECK_DECLS([asprintf, basename, fmemopen], [],
 #
 AC_CHECK_HEADERS([sys/cpuset.h])
 AC_CHECK_DECLS([CPU_ZERO, CPU_ISSET], [], 
-				AC_MSG_ERROR([CPU_ZERO/CPU_ISSET not found]), 
+				AC_MSG_NOTICE([CPU_ZERO/CPU_ISSET not found]), 
 				[#define _GNU_SOURCE 1
 				 #include <sys/types.h>
 				 #include <sched.h>
@@ -266,6 +266,10 @@ AC_CHECK_HEADERS([sys/thr.h])
 AC_CHECK_HEADERS([malloc.h])
 AC_CHECK_HEADERS([malloc_np.h])
 
+#
+# epoll headers are Linux-specific
+#
+AC_CHECK_HEADERS([sys/epoll.h])
 
 #
 # endianess
