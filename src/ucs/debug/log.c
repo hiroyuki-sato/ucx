@@ -32,7 +32,7 @@
 #define UCS_LOG_FMT             UCS_LOG_TIME_FMT" "UCS_LOG_PROC_DATA_FMT" " \
                                 UCS_LOG_FILE_FMT" "UCS_LOG_METADATA_FMT" ""%s\n"
 
-#define UCS_LOG_TIME_ARG(_tv)  (_tv)->tv_sec, (_tv)->tv_usec
+#define UCS_LOG_TIME_ARG(_tv)  (_tv)->tv_sec, (long int)(_tv)->tv_usec
 #define UCS_LOG_SHORT_ARG(_short_file, _line, _level, _comp_conf, _tv, _message) \
     UCS_LOG_TIME_ARG(_tv), _short_file, _line, (_comp_conf)->name, \
     ucs_log_level_names[_level], _message
