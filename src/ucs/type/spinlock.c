@@ -15,12 +15,14 @@
 
 void ucs_spinlock_destroy(ucs_spinlock_t *lock)
 {
+#ifndef HAVE_PROGRESS64
     int ret;
 
     ret = pthread_spin_destroy(&lock->lock);
     if (ret != 0) {
         ucs_warn("pthread_spin_destroy() failed: %d", ret);
     }
+#endif
 }
 
 void ucs_recursive_spinlock_destroy(ucs_recursive_spinlock_t *lock)
