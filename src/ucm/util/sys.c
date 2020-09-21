@@ -18,7 +18,9 @@
 #include <ucm/util/log.h>
 #include <ucm/mmap/mmap.h>
 #include <ucs/sys/math.h>
+#ifndef __APPLE__
 #include <linux/mman.h>
+#endif
 #include <sys/mman.h>
 #include <pthread.h>
 #include <string.h>
@@ -127,7 +129,12 @@ void *ucm_sys_realloc(void *ptr, size_t size)
         return ptr;
     }
 
+#ifdef __APPLE__
+    munmap(oldptr, oldsize);
+    newptr = mmap(NULL, sys_size, PROT_READ|PROT_WRITE, MAP_SHARED, -1, 0);
+#else
     newptr = ucm_orig_mremap(oldptr, oldsize, sys_size, MREMAP_MAYMOVE);
+#endif
     if (newptr == MAP_FAILED) {
         ucm_error("mremap(oldptr=%p oldsize=%zu, newsize=%zu) failed: %m",
                   oldptr, oldsize, sys_size);
@@ -178,8 +185,14 @@ void ucm_parse_proc_self_maps(ucm_proc_maps_cb_t cb, void *arg)
             }
         } else if (read_size == buffer_size - offset) {
             /* enlarge buffer */
+#ifdef __APPLE__
+            munmap(buffer, buffer_size);
+            buffer = mmap(NULL, buffer_size * 2, PROT_READ|PROT_WRITE,
+                          MAP_SHARED, -1, 0);
+#else
             buffer = ucm_orig_mremap(buffer, buffer_size, buffer_size * 2,
                                      MREMAP_MAYMOVE);
+#endif
             if (buffer == MAP_FAILED) {
                 ucm_fatal("failed to allocate maps buffer(size=%zu)", buffer_size);
             }

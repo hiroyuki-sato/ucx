@@ -673,3 +673,16 @@ UCS_STATIC_CLEANUP {
     pthread_spin_destroy(&ucm_kh_lock);
 #endif
 }
+
+#ifdef __APPLE__
+/* TODO: Fix */
+void *ucm_orig_mremap(void *old_address, size_t old_size, size_t new_size,
+                      int flags) {
+    void *newptr;
+
+    munmap(old_address, old_size);
+    newptr = mmap(NULL, new_size, PROT_READ|PROT_WRITE, MAP_SHARED, -1, 0);
+
+    return newptr;
+}
+#endif
