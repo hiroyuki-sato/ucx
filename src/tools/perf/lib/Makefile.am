@@ -18,6 +18,11 @@ libucxperf_la_LIBADD   = \
 	$(abs_top_builddir)/src/ucp/libucp.la \
 	$(abs_top_builddir)/src/ucs/libucs.la
 
+if HAVE_PROGRESS64
+libucxperf_la_CFLAGS   += $(PROGRESS64_CPPFLAGS)
+libucxperf_la_CXXFLAGS += $(PROGRESS64_CPPFLAGS)
+endif
+
 # C-linkable C++ code - must override any inherited CXXFLAGS
 CXXFLAGS              += -nostdlib $(PERF_LIB_CXXFLAGS) 
 

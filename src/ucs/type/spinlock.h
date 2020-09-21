@@ -12,6 +12,10 @@
 #include <pthread.h>
 #include <errno.h>
 
+#ifdef HAVE_PROGRESS64
+#include <p64_spinlock.h>
+#endif
+
 BEGIN_C_DECLS
 
 /** @file spinlock.h */
@@ -26,7 +30,11 @@ enum {
  * Simple spinlock.
  */
 typedef struct ucs_spinlock {
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_t     lock;
+#else
     pthread_spinlock_t lock;
+#endif
 } ucs_spinlock_t;
 
 /**
@@ -43,8 +51,13 @@ typedef struct ucs_recursive_spinlock {
 
 static ucs_status_t ucs_spinlock_init(ucs_spinlock_t *lock, int flags)
 {
+#ifndef HAVE_PROGRESS64
     int ret, lock_flags;
+#endif
 
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_init(&lock->lock);
+#else
     if (flags & UCS_SPINLOCK_FLAG_SHARED) {
         lock_flags = PTHREAD_PROCESS_SHARED;
     } else {
@@ -55,7 +68,7 @@ static ucs_status_t ucs_spinlock_init(ucs_spinlock_t *lock, int flags)
     if (ret != 0) {
         return UCS_ERR_IO_ERROR;
     }
-
+#endif
     return UCS_OK;
 }
 
@@ -80,7 +93,11 @@ ucs_recursive_spin_is_owner(ucs_recursive_spinlock_t *lock, pthread_t self)
 
 static inline void ucs_spin_lock(ucs_spinlock_t *lock)
 {
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_try_acquire(&lock->lock);
+#else
     pthread_spin_lock(&lock->lock);
+#endif
 }
 
 static inline void ucs_recursive_spin_lock(ucs_recursive_spinlock_t *lock)
@@ -99,9 +116,15 @@ static inline void ucs_recursive_spin_lock(ucs_recursive_spinlock_t *lock)
 
 static inline int ucs_spin_try_lock(ucs_spinlock_t *lock)
 {
+#ifdef HAVE_PROGRESS64
+    if (p64_spinlock_try_acquire(&lock->lock) != true) {
+        return 0;
+    }
+#else
     if (pthread_spin_trylock(&lock->lock) != 0) {
         return 0;
     }
+#endif
 
     return 1;
 }
@@ -126,7 +149,11 @@ static inline int ucs_recursive_spin_trylock(ucs_recursive_spinlock_t *lock)
 
 static inline void ucs_spin_unlock(ucs_spinlock_t *lock)
 {
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_release(&lock->lock);
+#else
     pthread_spin_unlock(&lock->lock);
+#endif
 }
 
 static inline void ucs_recursive_spin_unlock(ucs_recursive_spinlock_t *lock)

@@ -185,6 +185,12 @@ ucs_stats_parser_LDADD   = libucs.la
 ucs_stats_parser_SOURCES = stats/stats_parser.c
 endif
 
+if HAVE_PROGRESS64
+libucs_la_CPPFLAGS  += $(PROGRESS64_CPPFLAGS)
+libucs_la_CFLAGS    += $(PROGRESS64_CPPFLAGS)
+libucs_la_LDFLAGS   += $(PROGRESS64_LDFLAGS) $(PROGRESS64_LIBS)
+endif
+
 all-local: $(objdir)/$(modulesubdir)
 
 $(objdir)/$(modulesubdir): $(lib_LTLIBRARIES)

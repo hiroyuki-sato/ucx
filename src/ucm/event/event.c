@@ -28,11 +28,18 @@
 #include <string.h>
 #include <errno.h>
 #include <inttypes.h>
+#ifdef HAVE_PROGRESS64
+#include <p64_spinlock.h>
+#endif
 
 
 UCS_LIST_HEAD(ucm_event_installer_list);
 
+#ifdef HAVE_PROGRESS64
+static p64_spinlock_t ucm_kh_lock;
+#else
 static pthread_spinlock_t ucm_kh_lock;
+#endif
 #define ucm_ptr_hash(_ptr)  kh_int64_hash_func((uintptr_t)(_ptr))
 KHASH_INIT(ucm_ptr_size, const void*, size_t, 1, ucm_ptr_hash, kh_int64_hash_equal)
 
@@ -270,18 +277,30 @@ static int ucm_shm_del_entry_from_khash(const void *addr, size_t *size)
 {
     khiter_t iter;
 
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_try_acquire(&ucm_kh_lock);
+#else
     pthread_spin_lock(&ucm_kh_lock);
+#endif
     iter = kh_get(ucm_ptr_size, &ucm_shmat_ptrs, addr);
     if (iter != kh_end(&ucm_shmat_ptrs)) {
         if (size != NULL) {
             *size = kh_value(&ucm_shmat_ptrs, iter);
         }
         kh_del(ucm_ptr_size, &ucm_shmat_ptrs, iter);
+#ifdef HAVE_PROGRESS64
+        p64_spinlock_release(&ucm_kh_lock);
+#else
         pthread_spin_unlock(&ucm_kh_lock);
+#endif
         return 1;
     }
 
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_release(&ucm_kh_lock);
+#else
     pthread_spin_unlock(&ucm_kh_lock);
+#endif
     return 0;
 }
 
@@ -320,12 +339,20 @@ void *ucm_shmat(int shmid, const void *shmaddr, int shmflg)
     ucm_event_dispatch(UCM_EVENT_SHMAT, &event);
 
     if (event.shmat.result != MAP_FAILED) {
+#ifdef HAVE_PROGRESS64
+        p64_spinlock_try_acquire(&ucm_kh_lock);
+#else
         pthread_spin_lock(&ucm_kh_lock);
+#endif
         iter = kh_put(ucm_ptr_size, &ucm_shmat_ptrs, event.mmap.result, &result);
         if (result != -1) {
             kh_value(&ucm_shmat_ptrs, iter) = size;
         }
+#ifdef HAVE_PROGRESS64
+        p64_spinlock_release(&ucm_kh_lock);
+#else
         pthread_spin_unlock(&ucm_kh_lock);
+#endif
         ucm_dispatch_vm_mmap(event.shmat.result, size);
     }
 
@@ -632,11 +659,17 @@ ucs_status_t ucm_test_external_events(int events)
 }
 
 UCS_STATIC_INIT {
+#ifdef HAVE_PROGRESS64
+    p64_spinlock_init(&ucm_kh_lock);
+#else
     pthread_spin_init(&ucm_kh_lock, PTHREAD_PROCESS_PRIVATE);
+#endif
     kh_init_inplace(ucm_ptr_size, &ucm_shmat_ptrs);
 }
 
 UCS_STATIC_CLEANUP {
     kh_destroy_inplace(ucm_ptr_size, &ucm_shmat_ptrs);
+#ifndef HAVE_PROGRESS64
     pthread_spin_destroy(&ucm_kh_lock);
+#endif
 }
