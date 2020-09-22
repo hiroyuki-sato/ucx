@@ -11,6 +11,9 @@
 #include "gtest.h"
 
 #include <common/mem_buffer.h>
+#ifdef __APPLE__
+#include <common/pthread_compat.h>
+#endif
 
 #include <ucs/config/types.h>
 #include <ucs/sys/preprocessor.h>

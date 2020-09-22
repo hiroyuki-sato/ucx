@@ -224,8 +224,12 @@ gtest_LDADD += \
 endif
 
 if HAVE_PROGRESS64
+gtest_SOURCES += \
+	common/pthread_compat.c
 gtest_CFLAGS   += $(PROGRESS64_CPPFLAGS)
-gtest_CXXFLAGS += ${PROGRESS64_CPPFLAGS}
+gtest_CXXFLAGS += $(PROGRESS64_CPPFLAGS)
+gtest_LDADD += \
+	$(PROGRESS64_LDFLAGS) $(PROGRESS64_LIBS)
 endif
 
 if HAVE_HIP
