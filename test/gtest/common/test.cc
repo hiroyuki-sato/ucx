@@ -5,6 +5,7 @@
 */
 
 #include "test.h"
+#include "pthread_barrier.h"
 
 #include <ucs/config/parser.h>
 #include <ucs/config/global_opts.h>

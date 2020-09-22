@@ -30,6 +30,9 @@
 #include <dirent.h>
 #include <stdint.h>
 
+#if !defined(PTHREAD_BARRIER_SERIAL_THREAD)
+#include "pthread_barrier.h"
+#endif
 
 #ifndef UINT16_MAX
 #define UINT16_MAX (65535)
