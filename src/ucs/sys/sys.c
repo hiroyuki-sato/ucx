@@ -1457,13 +1457,25 @@ ucs_status_t ucs_sys_get_file_time(const char *name, ucs_sys_file_time_t type,
 
     switch (type) {
     case UCS_SYS_FILE_TIME_CTIME:
+#ifdef __APPLE__
+        *filetime = ucs_time_from_timespec(&stat_buf.st_ctimespec);
+#else
         *filetime = ucs_time_from_timespec(&stat_buf.st_ctim);
+#endif
         return UCS_OK;
     case UCS_SYS_FILE_TIME_ATIME:
+#ifdef __APPLE__
+        *filetime = ucs_time_from_timespec(&stat_buf.st_atimespec);
+#else
         *filetime = ucs_time_from_timespec(&stat_buf.st_atim);
+#endif
         return UCS_OK;
     case UCS_SYS_FILE_TIME_MTIME:
+#ifdef __APPLE__
+        *filetime = ucs_time_from_timespec(&stat_buf.st_mtimespec);
+#else
         *filetime = ucs_time_from_timespec(&stat_buf.st_mtim);
+#endif
         return UCS_OK;
     default:
         return UCS_ERR_INVALID_PARAM;
