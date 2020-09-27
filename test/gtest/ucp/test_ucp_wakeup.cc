@@ -7,7 +7,13 @@
 #include "ucp_test.h"
 
 #include <algorithm>
+#ifdef __APPLE__
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
+#else
 #include <sys/epoll.h>
+#endif
 #include <sys/poll.h>
 
 
@@ -197,7 +203,11 @@ protected:
     static void* const USER_DATA;
 
     virtual void init() {
+#ifdef __APPLE__
+        m_epfd = kqueue();
+#else
         m_epfd = epoll_create(1);
+#endif
         ASSERT_GE(m_epfd, 0);
         test_ucp_wakeup::init();
     }
@@ -250,16 +260,28 @@ UCS_TEST_P(test_ucp_wakeup_external_epollfd, epoll_wait)
         }
         ASSERT_UCS_OK(status);
 
+#ifdef __APPLE__
+        struct kevent kev;
+#else
         struct epoll_event event;
+#endif
+
         int ret;
         do {
+#ifdef __APPLE__
+            ret = kevent(m_epfd, NULL, 0, &kev, 1, NULL);
+#else
             ret = epoll_wait(m_epfd, &event, 1, -1);
+#endif
         } while ((ret < 0) && (errno == EINTR));
         if (ret < 0) {
-            UCS_TEST_MESSAGE << "epoll_wait() failed: " << strerror(errno);
+            UCS_TEST_MESSAGE << "kqueue/epoll_wait() failed: " << strerror(errno);
         }
         ASSERT_EQ(1, ret);
+#ifndef __APPLE__
+        /* TODO: kqueue version */
         EXPECT_EQ(USER_DATA, event.data.ptr);
+#endif
     }
 
     ucp_request_release(req);
