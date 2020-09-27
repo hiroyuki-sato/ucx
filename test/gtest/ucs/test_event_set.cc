@@ -8,7 +8,13 @@
 extern "C" {
 #include <ucs/sys/event_set.h>
 #include <pthread.h>
+#ifdef __APPLE__
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
+#else
 #include <sys/epoll.h>
+#endif
 }
 
 #define MAX_BUF_LEN        255
@@ -40,7 +46,11 @@ public:
 protected:
     void init() {
         if (GetParam() & UCS_EVENT_SET_EXTERNAL_FD) {
+#ifdef __APPLE__
+            m_ext_fd = kqueue();
+#else
             m_ext_fd = epoll_create(1);
+#endif
             ASSERT_TRUE(m_ext_fd > 0);
         } else {
             m_ext_fd = -1;
