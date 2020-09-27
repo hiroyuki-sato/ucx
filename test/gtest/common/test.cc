@@ -424,6 +424,7 @@ bool test_base::barrier() {
 }
 
 static void clear_dontcopy_regions_vma_cb(ucs_sys_vma_info_t *info, void *ctx) {
+#if !defined(__APPLE__)
     int ret;
 
     if (info->flags & UCS_SYS_VMA_FLAG_DONTCOPY) {
@@ -432,6 +433,7 @@ static void clear_dontcopy_regions_vma_cb(ucs_sys_vma_info_t *info, void *ctx) {
                           << std::hex << " 0x" << info->start
                           << "-0x" << info->end;
     }
+#endif
 }
 
 clear_dontcopy_regions::clear_dontcopy_regions() {
