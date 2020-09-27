@@ -79,8 +79,6 @@ gtest_SOURCES = \
 	common/test_perf.cc \
 	common/test.cc \
 	\
-	ucm/malloc_hook.cc \
-	\
 	uct/test_amo.cc \
 	uct/test_amo_add_xor.cc \
 	uct/test_amo_and_or.cc \
