@@ -9,6 +9,9 @@ extern "C" {
 #include <ucs/debug/debug.h>
 #include <ucs/sys/compiler.h>
 #include <ucs/sys/sys.h>
+#ifdef __APPLE__
+#include <libgen.h>
+#endif
 }
 
 #include <dlfcn.h>
