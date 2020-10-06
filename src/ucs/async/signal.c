@@ -43,14 +43,16 @@ static void ucs_async_signal_cleanup(ucs_async_context_t *async)
 }
 
 static ucs_status_t ucs_async_signal_modify_event_fd(ucs_async_context_t *async,
-                                                     int event_fd, int events)
+                                                     int event_fd,
+                                                     ucs_event_set_types_t events)
 {
     ucs_warn("macOS doesn't support signal mode yet");
     return UCS_OK;
 }
 
 static ucs_status_t ucs_async_signal_add_event_fd(ucs_async_context_t *async,
-                                                  int event_fd, int events)
+                                                  int event_fd,
+                                                  ucs_event_set_types_t events)
 {
     ucs_warn("macOS doesn't support signal mode yet");
     return UCS_OK;
