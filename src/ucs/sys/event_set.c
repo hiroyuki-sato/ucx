@@ -200,6 +200,11 @@ ucs_status_t ucs_event_set_add(ucs_sys_event_set_t *event_set, int fd,
     /* TODO */
     EV_SET(&kq_event, fd, kq_filter, EV_ADD, 0, 0, callback_data);
     ret = kevent(event_set->event_fd, &kq_event, 1, NULL, 0, NULL);
+    if (ret < 0) {
+        ucs_error("kevent(event_fd=%d, ADD, fd=%d) failed: %m",
+                  event_set->event_fd, fd);
+        return UCS_ERR_IO_ERROR;
+    }
 
 #endif
     return UCS_OK;
@@ -234,6 +239,11 @@ ucs_status_t ucs_event_set_mod(ucs_sys_event_set_t *event_set, int fd,
     EV_SET(&kq_event, fd, kq_filter, EV_ADD, 0, 0,
            callback_data);
     ret = kevent(event_set->event_fd, &kq_event, 1, NULL, 0, NULL);
+    if (ret < 0) {
+        ucs_error("kevent(event_fd=%d, MOD, fd=%d) failed: %m",
+                  event_set->event_fd, fd);
+        return UCS_ERR_IO_ERROR;
+    }
 
 #endif
 
@@ -256,7 +266,7 @@ ucs_status_t ucs_event_set_del(ucs_sys_event_set_t *event_set, int fd)
     }
 #else
     /* TODO */
-    EV_SET(&kq_event, fd, 0, EV_DELETE, 0, 0, NULL);
+    EV_SET(&kq_event, fd, EVFILT_WRITE | EVFILT_READ, EV_DELETE, 0, 0, NULL);
     ret = kevent(event_set->event_fd, &kq_event, 1, NULL, 0, NULL);
     if (ret < 0) {
         ucs_error("kevent(event_fd=%d, DEL, fd=%d) failed: %m",
