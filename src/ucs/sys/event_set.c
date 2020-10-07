@@ -57,15 +57,15 @@ static inline int ucs_event_set_map_to_raw_events(int events)
 #else
     ev_read  = EVFILT_READ;
     ev_write = EVFILT_WRITE;
-    ev_error = -1; /* TODO */
-    ev_et    = -1; /* TODO */
+    ev_error = 0; /* TODO */
+    ev_et    = 0; /* TODO */
 #endif
 
     if (events & UCS_EVENT_SET_EVREAD) {
          raw_events |= ev_read;
     }
     if (events & UCS_EVENT_SET_EVWRITE) {
-         raw_events |= ev_error;
+         raw_events |= ev_write;
     }
     if (events & UCS_EVENT_SET_EVERR) {
          raw_events |= ev_error;
@@ -198,8 +198,8 @@ ucs_status_t ucs_event_set_add(ucs_sys_event_set_t *event_set, int fd,
     memset(&kq_event, 0, sizeof(kq_event));
     kq_filter = ucs_event_set_map_to_raw_events(events);
     /* TODO */
-    EV_SET(&kq_event, fd, kq_filter, EV_ADD, 0, 0, NULL);
-    ret = kevent(event_set->event_fd, &kq_event, 1, NULL, 0, callback_data);
+    EV_SET(&kq_event, fd, kq_filter, EV_ADD, 0, 0, callback_data);
+    ret = kevent(event_set->event_fd, &kq_event, 1, NULL, 0, NULL);
 
 #endif
     return UCS_OK;
