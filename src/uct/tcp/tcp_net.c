@@ -14,6 +14,11 @@
 #ifdef __APPLE__
 #include <ifaddrs.h>
 #include <net/if_dl.h>
+#include <sys/sysctl.h>
+#include <sys/socket.h>
+#include <net/route.h>
+#include <netinet/in.h>
+#include <net/if.h>
 #else
 #include <linux/sockios.h>
 #include <linux/types.h>
@@ -194,15 +199,87 @@ ucs_status_t uct_tcp_netif_inaddr(const char *if_name, struct sockaddr_in *ifadd
     return UCS_OK;
 }
 
+static ucs_status_t uct_tcp_netif_cmp_get_default_iface(char *ifname)
+{
+    int mib[6];
+    size_t needed;
+    char *buf, *next, *lim;
+    struct rt_msghdr2 *rtm;
+
+    mib[0] = CTL_NET;
+    mib[1] = PF_ROUTE;
+    mib[2] = 0;
+    mib[3] = 0;
+    mib[4] = NET_RT_DUMP2;
+    mib[5] = 0;
+
+    if( sysctl(mib, 6, NULL, &needed, NULL,0) < 0){
+        ucs_error("sysctl");
+        return UCS_ERR_IO_ERROR;
+    }
+
+    if((buf = malloc(needed)) == 0 ){
+        ucs_error("malloc");
+        return UCS_ERR_IO_ERROR;
+    }
+
+    if( sysctl(mib, 6, buf, &needed, NULL,0) < 0){
+        ucs_error("sysctl");
+        return UCS_ERR_IO_ERROR;
+    }
+
+    lim  = buf + needed;
+    for (next = buf; next < lim; next += rtm->rtm_msglen) {
+        struct sockaddr *sa;
+        rtm = (struct rt_msghdr2 *)next;
+
+        sa = (struct sockaddr *)(rtm + 1);
+        if(sa->sa_family == AF_INET) {
+            off_t off_dest = sizeof(struct sockaddr)*(RTA_DST-1);
+            off_t off_mask = sizeof(struct sockaddr)*(RTA_NETMASK);
+
+            struct sockaddr_in *dest = (struct sockaddr_in *)sa + off_dest;
+            struct sockaddr_in *mask = (struct sockaddr_in *)sa + off_mask;
+
+            /* address: 0.0.0.0/0 */
+            if( rtm->rtm_addrs & RTA_DST &&
+                dest->sin_addr.s_addr == INADDR_ANY &&
+                rtm->rtm_addrs & RTA_NETMASK &&
+                ((ntohl(mask->sin_addr.s_addr) == 0L))) {
+
+                if_indextoname(rtm->rtm_index, ifname);
+                return UCS_OK;
+            }
+        }
+    }
+    return UCS_ERR_IO_ERROR;
+}
+
 ucs_status_t uct_tcp_netif_is_default(const char *if_name, int *result_p)
 {
+#ifdef __APPLE__
+    char def_ifname[IFNAMSIZ + 1];
+#else
     static const char *filename = "/proc/net/route";
     in_addr_t netmask;
     char name[128];
     char str[128];
     FILE *f;
+#endif
     int ret;
 
+#ifdef __APPLE__
+    ret = uct_tcp_netif_cmp_get_default_iface(def_ifname);
+    if (ret != UCS_OK) {
+        return UCS_ERR_IO_ERROR;
+    }
+    if(strcmp(def_ifname,if_name) == 0) {
+        *result_p = 1;
+    } else {
+        *result_p = 0;
+    }
+    return UCS_OK;
+#else
     f = fopen(filename, "r");
     if (f == NULL) {
         ucs_debug("failed to open '%s': %m", filename);
@@ -226,4 +303,5 @@ ucs_status_t uct_tcp_netif_is_default(const char *if_name, int *result_p)
     *result_p = 0;
     fclose(f);
     return UCS_OK;
+#endif
 }
