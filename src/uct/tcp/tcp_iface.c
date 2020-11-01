@@ -722,6 +722,7 @@ ucs_status_t uct_tcp_query_devices(uct_md_h md,
                                   sizeof(devices[num_devices].name),
                                   "%s", ifaptr->ifa_name);
                 devices[num_devices].type = UCT_DEVICE_TYPE_NET;
+                devices[num_devices].sys_device = UCS_SYS_DEVICE_ID_UNKNOWN;
                 ++num_devices;
             }
         }
